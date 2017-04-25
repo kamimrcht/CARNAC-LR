@@ -382,7 +382,11 @@ uint  computeClustersAndCut(unordered_map <uint, set<uint>>& pcliqueToNodes, uno
 int main(int argc, char** argv){
 
 	if (argc > 1){
-		
+		string outFileName("final_g_clusters.txt");
+		if (argc > 2){
+			outFileName = argv[2];
+		}
+		ofstream out(outFileName);
 		string fileName(argv[1]);
         ifstream refFile(fileName);
         unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
@@ -432,7 +436,7 @@ int main(int argc, char** argv){
 			}
 			++i;
 		}
-		ofstream out("final_g_clusters.txt");
+		
 		uint index(0);
 		for (auto&& cutoff: CC){
 			if (index == val){
