@@ -1,5 +1,5 @@
 Compilation and Usage:
- g++ -std=c++11 clustering_cliqueness2.cpp -o clustering_cliqueness;  ./clustering_cliqueness short_read_connector_res.txt
+ g++ -std=c++11 clustering_cliqueness.cpp -o clustering_cliqueness;  ./clustering_cliqueness short_read_connector_res.txt
 
 Results are written in:
  final_g_clusters.txt
