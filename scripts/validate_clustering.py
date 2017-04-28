@@ -79,8 +79,11 @@ if (len(sys.argv) > 2):
 		compute_max_i_Rij(allClusterVectors, max_i)
 		compute_max_j_Rij(allClusterVectors, max_j)
 		#~ print(max_i, max_j)
-		print("precision =", compute_precision(max_j, sumR_ij))
-		print("sensitivity =", compute_sensitivity(max_i, sumR_ij, unclassified))
+		precision = compute_precision(max_j, sumR_ij)
+		print("precision =", precision)
+		sensitivity = compute_sensitivity(max_i, sumR_ij, unclassified)
+		print("sensitivity =", sensitivity)
+		print("F1 measure =", 2 * precision * sensitivity / (precision + sensitivity))
 else:
 	print("Outputs metrics for clusters")
 	print("Usage: python3 validate_clustering.py true_clusters.txt final_g_clusters.txt")
