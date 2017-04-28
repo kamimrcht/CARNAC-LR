@@ -458,7 +458,7 @@ int main(int argc, char** argv){
 		cout << "Testing cutoff values..." << endl;
 		float prev(1.1), cutoffTrunc;
 		for (auto&& cutoff: CC){
-			cutoffTrunc = trunc(cutoff * 100)/100;
+			cutoffTrunc = trunc(cutoff * 10)/10;
 			if (cutoffTrunc < prev){
 				prev = cutoffTrunc;
 				cout << "cutoff:" << cutoffTrunc << endl;
