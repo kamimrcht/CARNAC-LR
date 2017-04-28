@@ -23,9 +23,9 @@ if (len(sys.argv) > 1):
 	with open(sys.argv[1]) as infile:  # minimap output
 		for rline in infile:
 			line = rline.rstrip()
-			index = line.split("_")[0]
+			index = int(line.split("_")[0]) - 1 
 			#~ read = line.split("\t")[0].split('t')[0][:-1]
-			indexRecruited = line.split("\t")[5].split('_')[0]
+			indexRecruited = int(line.split("\t")[5].split('_')[0]) - 1
 			#~ index = readToIndex[read]
 			#~ indexRecruited = readToIndex[recruited]
 			if index in readToRecruited:
