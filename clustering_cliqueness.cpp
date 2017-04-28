@@ -105,7 +105,6 @@ void computeCCandDeg(unordered_map <uint, unordered_set<uint>>& nodeToNeighbors,
 		}
 		CC.insert(clusteringCoef);
 	}
-	
 }
 
 
@@ -180,6 +179,7 @@ void mergeProcedure(unordered_map <uint, set<uint>>& pcliqueToNodes, uint indexC
 
 
 void assignClusterDFS(uint node, unordered_map <uint, set<uint>>& temporaryClusters, unordered_map <uint, uint>& temporaryNodesToClusters, uint& indexCluster, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, set<uint>& pcliqueOut, set<uint>& pcliqueIn, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff){
+		//~ cout << "in" << endl;
 		bool above(false);
 		if (temporaryClusters.count(indexCluster)){
 			temporaryClusters[indexCluster].insert(node);
@@ -199,7 +199,7 @@ void assignClusterDFS(uint node, unordered_map <uint, set<uint>>& temporaryClust
 				}
 			}
 		}
-
+	//~ cout << "out" << endl;
 }
 
 uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_map <uint, set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff, bool& modif){
@@ -226,12 +226,15 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 		unordered_map <uint, set<uint>> temporaryClusters;
 		unordered_map <uint,uint> temporaryNodesToClusters;
 		uint indexCluster(pcliqueToNodes.size());
+		//~ cout << "in" << endl;
 		for (auto&& node : pcliqueToNodes[indexC1]){
 			if (not temporaryNodesToClusters.count(node)){
+				
 				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC1], pCliquesAboveThresh,nodeToMetrics, cutoff);
 				++indexCluster;
 			}
 		}
+		//~ cout << "out" << endl;
 		if (temporaryClusters.size() > 1){  // several connected component in the remaining c1
 			modif = true;
 			pcliqueToNodes[indexC1] = {};
@@ -255,12 +258,16 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 		unordered_map <uint, set<uint>> temporaryClusters;
 		unordered_map <uint, uint> temporaryNodesToClusters;
 		uint indexCluster(pcliqueToNodes.size());
+		//~ cout << "in" << endl;
+
 		for (auto&& node : pcliqueToNodes[indexC2]){
 			if (not temporaryNodesToClusters.count(node)){
 				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC2], pCliquesAboveThresh, nodeToMetrics, cutoff);
 				++indexCluster;
 			}
 		}
+		//~ cout << "out" << endl;
+
 		if (temporaryClusters.size() > 1){  // several connected component in the remaining c2
 			modif = true;
 			pcliqueToNodes[indexC2] = {};
@@ -281,69 +288,95 @@ uint  computeClustersAndCut(unordered_map <uint, set<uint>>& pcliqueToNodes, uno
 	uint cut(0);
 	bool modif(false), modif1(true);
 	unordered_map <uint, uint> nodeToCluster;
+	cout << "nb clusters:" << pcliqueToNodes.size() << endl;
 	while (modif1){
 		modif1 = false;
 		for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ){
+			//~ cout << "i:" << clust1->first << endl;
+			//~ if (clust1->first == 7515){
+				//~ cin.get();
+			//~ }
 			if (not clust1->second.empty()){
+				//~ if (clust1->first == 7515){
+					//~ cout << "not empty" << endl;
+				//~ }
 				for (auto clust2(pcliqueToNodes.begin()); clust2 != pcliqueToNodes.end(); ){
+					//~ if (clust1->first == 7515){
+						//~ cout << "j:" << clust2->first << endl;
+					//~ }
 					modif = false;
-					if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first) and pCliquesAboveThresh.count(clust2->first))){
-						if (clust1 != clust2){
-							set<uint> unionC;
-							set<uint> interC;
-							unionCC = 0;
-							set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							if (not interC.empty()){  // some nodes belong to both clusters
-								modif = true;
-								if (interC.size() == clust1->second.size() and interC.size() == clust2->second.size()){
-									clust2->second = {};
-								} else {
-									set_union(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(unionC, unionC.begin()));
-									float cardUnion(0);
-									for (auto&& node : unionC){
-										for (auto&& neigh : nodeToNeighbors[node]){
-											if (unionC.count(neigh)){
-												++cardUnion;
+					if (clust1->first != clust2->first){
+						if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first) and pCliquesAboveThresh.count(clust2->first))){
+							if (clust1 != clust2){
+								set<uint> unionC;
+								set<uint> interC;
+								unionCC = 0;
+								set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
+								if (not interC.empty()){  // some nodes belong to both clusters
+									modif = true;
+									if (interC.size() == clust1->second.size() and interC.size() == clust2->second.size()){
+										clust2->second = {};
+									} else {
+										set_union(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(unionC, unionC.begin()));
+										float cardUnion(0);
+										for (auto&& node : unionC){
+											for (auto&& neigh : nodeToNeighbors[node]){
+												if (unionC.count(neigh)){
+													++cardUnion;
+												}
 											}
 										}
-									}
-									unionCC = cardUnion / (unionC.size() * (unionC.size() - 1));
-									if (unionCC >= 100 * cutoff/100){
-										mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster);
-										modif1 = true;
-									} else {
-										cutProcedure(interC, nodeToNeighbors,  pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, pCliquesAboveThresh, nodeToMetrics, cutoff, modif1);
+										unionCC = cardUnion / (unionC.size() * (unionC.size() - 1));
+										if (unionCC >= 100 * cutoff/100){
+											//~ cout << "merge" << endl;
+											mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster);
+											modif1 = true;
+										} else {
+											//~ cout << "cut" << endl;
+											cutProcedure(interC, nodeToNeighbors,  pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, pCliquesAboveThresh, nodeToMetrics, cutoff, modif1);
+								
+										}
 									}
 								}
 							}
-						}
-					} else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first))){
-						if (clust1 != clust2){
-							
-							set<uint> interC;
-							set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							if (not interC.empty()){
-								modif = true; 
-								mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, true);
-								modif1 = true;
+						} else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first))){
+							if (clust1 != clust2){
+								
+								set<uint> interC;
+								set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
+								if (not interC.empty()){
+									modif = true;
+									//~ cout << "merge" << endl;
+									mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, true);
+									modif1 = true;
+								}
+							}
+						} else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust2->first))){
+							if (clust1 != clust2){
+								set<uint> interC;
+								set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
+								if (not interC.empty()){
+									modif = true;
+									//~ cout << "merge" << endl;
+									mergeProcedure(pcliqueToNodes, clust2->first, clust1->first, nodeToCluster, true);
+									modif1 = true;
+								}
 							}
 						}
-					} else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust2->first))){
-						if (clust1 != clust2){
-							set<uint> interC;
-							set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							if (not interC.empty()){
-								modif = true;
-								mergeProcedure(pcliqueToNodes, clust2->first, clust1->first, nodeToCluster, true);
-								modif1 = true;
-							}
-						}
+					} else {
+						//~ if (clust1->first == 7515){
+						//~ cout << "same" << endl;
+						//~ }
 					}
 					if (not modif){
 						++clust2;
 					}
 				}
 			} else {
+				//~ if (clust1->first == 7515){
+					//~ cout <<  "empty" << endl;
+				//~ }
+
 				modif = false;
 			}
 			if (not modif){
@@ -352,30 +385,42 @@ uint  computeClustersAndCut(unordered_map <uint, set<uint>>& pcliqueToNodes, uno
 		}
 	}
 	cut = 0;
+	cout << "final cut" << endl;
+	//~ for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ++clust1){
+		//~ cout << "i:" << clust1->first << endl;
+		//~ for (auto clust2(pcliqueToNodes.begin()); clust2 != pcliqueToNodes.end(); ++clust2){
+			//~ if ((clust1->first > clust2->first) and not (clust1->second.empty() or clust2->second.empty())){
+				//~ if (clust1->second.size() < clust2->second.size()){
+					//~ for (auto && node : clust1->second){
+						//~ for (auto&& n : nodeToNeighbors[node]){
+							//~ if (clust2->second.count(n)){
+								//~ ++cut;
+							//~ }
+						//~ }
+					//~ }
+				//~ } else {
+					//~ for (auto && node : clust2->second){
+						//~ for (auto&& n : nodeToNeighbors[node]){
+							//~ if (clust1->second.count(n)){
+								//~ ++cut;
+							//~ }
+						//~ }
+					//~ }
+				//~ }
+			//~ }
+		//~ }
+	//~ }
 	for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ++clust1){
-		for (auto clust2(pcliqueToNodes.begin()); clust2 != pcliqueToNodes.end(); ++clust2){
-			if ((clust1->first > clust2->first) and not (clust1->second.empty() or clust2->second.empty())){
-				if (clust1->second.size() < clust2->second.size()){
-					for (auto && node : clust1->second){
-						for (auto&& n : nodeToNeighbors[node]){
-							if (clust2->second.count(n)){
-								++cut;
-							}
-						}
-					}
-				} else {
-					for (auto && node : clust2->second){
-						for (auto&& n : nodeToNeighbors[node]){
-							if (clust1->second.count(n)){
-								++cut;
-							}
-						}
-					}
+		for (auto && node : clust1->second){
+			for (auto&& n : nodeToNeighbors[node]){
+				if (not (clust1->second.count(n))){
+					++cut;
 				}
 			}
 		}
 	}
-	return cut;
+	//~ return cut;
+	return cut/2;
 }
 
 
@@ -411,16 +456,26 @@ int main(int argc, char** argv){
 		unordered_set<uint> nodeSingletons;
 		unordered_set<uint> pCliquesAboveThresh;
 		cout << "Testing cutoff values..." << endl;
+		float prev(1.1), cutoffTrunc;
 		for (auto&& cutoff: CC){
-			nbPCliques = 0;
-			pcliqueToNodes = {};
-			nodeToPCliques = {};
-			nodeSingletons = {};
-			pCliquesAboveThresh = {};
-			computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
-			
-			cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-			globalCut.push_back(cut);
+			cutoffTrunc = trunc(cutoff * 100)/100;
+			if (cutoffTrunc < prev){
+				prev = cutoffTrunc;
+				cout << "cutoff:" << cutoffTrunc << endl;
+				nbPCliques = 0;
+				pcliqueToNodes = {};
+				nodeToPCliques = {};
+				nodeSingletons = {};
+				pCliquesAboveThresh = {};
+				cout << "...Compute all pseudo cliques..." << endl;
+				computePseudoCliques(cutoffTrunc, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
+				cout << "...Make clusters..." << endl;
+				cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoffTrunc, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
+				globalCut.push_back(cut);
+				
+			} else {
+				globalCut.push_back(globalCut.back());
+			}
 		}
 		uint i(0), minCut(0), val(0);
 		// get the min cut over all cc values
@@ -438,19 +493,21 @@ int main(int argc, char** argv){
 		}
 		
 		uint index(0);
+		
 		for (auto&& cutoff: CC){
-			if (index == val){
-				cout <<"computing final cluster with cutoff:" <<  cutoff << " and min cut:" << minCut << endl;
-				pcliqueToNodes = {};
-				nodeToPCliques = {};
-				nbPCliques = 0;
-				nodeSingletons = {};
-				pCliquesAboveThresh = {};
-				computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
-				computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-				break;
-			}
-			++index;
+				if (index == val){
+					cout <<"computing final cluster with cutoff:" <<  cutoffTrunc << " and min cut:" << minCut << endl;
+					pcliqueToNodes = {};
+					nodeToPCliques = {};
+					nbPCliques = 0;
+					nodeSingletons = {};
+					pCliquesAboveThresh = {};
+					computePseudoCliques(cutoffTrunc, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
+					computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoffTrunc, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
+					break;
+				}
+				++index;
+			
 		}
 		for (auto p(pcliqueToNodes.begin()); p != pcliqueToNodes.end(); ++p){
 			if (not p->second.empty()){
