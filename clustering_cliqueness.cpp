@@ -352,30 +352,17 @@ uint  computeClustersAndCut(unordered_map <uint, set<uint>>& pcliqueToNodes, uno
 		}
 	}
 	cut = 0;
+		//~ }
 	for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ++clust1){
-		for (auto clust2(pcliqueToNodes.begin()); clust2 != pcliqueToNodes.end(); ++clust2){
-			if ((clust1->first > clust2->first) and not (clust1->second.empty() or clust2->second.empty())){
-				if (clust1->second.size() < clust2->second.size()){
-					for (auto && node : clust1->second){
-						for (auto&& n : nodeToNeighbors[node]){
-							if (clust2->second.count(n)){
-								++cut;
-							}
-						}
-					}
-				} else {
-					for (auto && node : clust2->second){
-						for (auto&& n : nodeToNeighbors[node]){
-							if (clust1->second.count(n)){
-								++cut;
-							}
-						}
-					}
+		for (auto && node : clust1->second){
+			for (auto&& n : nodeToNeighbors[node]){
+				if (not (clust1->second.count(n))){
+					++cut;
 				}
 			}
 		}
 	}
-	return cut;
+	return cut/2;
 }
 
 
