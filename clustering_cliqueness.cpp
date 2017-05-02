@@ -25,6 +25,18 @@
 using namespace std;
 
 
+void DFS(uint n, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& visited, unordered_set<uint>& nodesInConnexComp){
+	unordered_set<uint> neighbours;
+	if (not visited.count(n)){
+		visited.insert(n);
+		nodesInConnexComp.insert(n);
+		neighbours = nodeToNeighbors[n];
+		for (auto&& neigh : neighbours){
+			DFS(neigh, nodeToNeighbors, visited, nodesInConnexComp);
+		}
+	}
+}
+
 vector<string> split(const string &s, char delim){
 	stringstream ss(s);
 	string item;
@@ -373,80 +385,103 @@ int main(int argc, char** argv){
 		if (argc > 2){
 			outFileName = argv[2];
 		}
-		ofstream out(outFileName);
+		
 		string fileName(argv[1]);
         ifstream refFile(fileName);
-        unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
+        unordered_map <uint, unordered_set<uint>> nodeToNeighborsGlobal;
         // parse SRC's output, for each line we get a node and its neighbors and fill the map nodeToNeighbors
         cout << "Parsing..." << endl;
-		parsingSRC(refFile, nodeToNeighbors);
-		unordered_map <uint, pair<float, uint>> nodeToMetrics;
-		map <uint, vector<uint>, std::greater<uint>> degToNode;
-		set <float, std::greater<float>> CC;
-		// get CC and degree for each node
-		cout << "Computing graph..." << endl;
-		computeCCandDeg(nodeToNeighbors, nodeToMetrics, degToNode, CC);
-		ofstream outm("nodes_metrics.txt");
-		for (auto node(nodeToMetrics.begin()); node != nodeToMetrics.end(); ++node){
-			outm << node->first << " " << node->second.first << " " << node->second.second << endl; 
+		parsingSRC(refFile, nodeToNeighborsGlobal);
+
+		uint nbConnexComp(0);
+		unordered_set<uint> visited;
+		vector<unordered_set<uint>> nodesInConnexComp;
+		for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
+			//~ cout << node->first << endl;
+			if (not (visited.count(node->first))){
+				nodesInConnexComp.push_back({});
+				DFS(node->first, nodeToNeighborsGlobal, visited, nodesInConnexComp.back());
+				++ nbConnexComp;
+			}
 		}
-		unordered_map <uint, set<uint>> pcliqueToNodes;
-		unordered_map <uint, unordered_set<uint>> nodeToPCliques;
-		uint nbPCliques(0), cut(0);
-		vector<uint> globalCut;
-		// compute min cut for each clustering coef value
-		unordered_set<uint> nodeSingletons;
-		unordered_set<uint> pCliquesAboveThresh;
-		cout << "Testing cutoff values..." << endl;
-		for (auto&& cutoff: CC){
-			nbPCliques = 0;
-			pcliqueToNodes = {};
-			nodeToPCliques = {};
-			nodeSingletons = {};
-			pCliquesAboveThresh = {};
-			computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
-			
-			cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-			globalCut.push_back(cut);
-		}
-		uint i(0), minCut(0), val(0);
-		// get the min cut over all cc values
-		for (auto&& cut : globalCut){
-			if (i == 0){  // if the graph is composed only of clique the mincut will be zeros since the first cc
-				minCut = cut;
-				val = i;
-			} else {
-				if (cut < minCut and cut > 0){
-					val = i;
-					minCut = cut;
+		cout << "Connected components: " << nbConnexComp << endl;
+
+		ofstream out(outFileName);
+		for (uint c(0); c < nodesInConnexComp.size(); ++c){
+			unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
+			for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
+				if (nodesInConnexComp[c].count(node->first)){
+					nodeToNeighbors.insert({node->first, node->second});
 				}
 			}
-			++i;
-		}
-		
-		uint index(0);
-		for (auto&& cutoff: CC){
-			if (index == val){
-				cout <<"computing final cluster with cutoff:" <<  cutoff << " and min cut:" << minCut << endl;
+			unordered_map <uint, pair<float, uint>> nodeToMetrics;
+			map <uint, vector<uint>, std::greater<uint>> degToNode;
+			set <float, std::greater<float>> CC;
+			// get CC and degree for each node
+			cout << "Computing graph..." << endl;
+			computeCCandDeg(nodeToNeighbors, nodeToMetrics, degToNode, CC);
+			ofstream outm("nodes_metrics.txt");
+			for (auto node(nodeToMetrics.begin()); node != nodeToMetrics.end(); ++node){
+				outm << node->first << " " << node->second.first << " " << node->second.second << endl; 
+			}
+			unordered_map <uint, set<uint>> pcliqueToNodes;
+			unordered_map <uint, unordered_set<uint>> nodeToPCliques;
+			uint nbPCliques(0), cut(0);
+			vector<uint> globalCut;
+			// compute min cut for each clustering coef value
+			unordered_set<uint> nodeSingletons;
+			unordered_set<uint> pCliquesAboveThresh;
+			cout << "Testing cutoff values..." << endl;
+			for (auto&& cutoff: CC){
+				nbPCliques = 0;
 				pcliqueToNodes = {};
 				nodeToPCliques = {};
-				nbPCliques = 0;
 				nodeSingletons = {};
 				pCliquesAboveThresh = {};
 				computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
-				computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-				break;
+				
+				cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
+				globalCut.push_back(cut);
 			}
-			++index;
-		}
-		for (auto p(pcliqueToNodes.begin()); p != pcliqueToNodes.end(); ++p){
-			if (not p->second.empty()){
-				for (auto&& node : p->second){
-					out << node << " " ;
+			uint i(0), minCut(0), val(0);
+			// get the min cut over all cc values
+			for (auto&& cut : globalCut){
+				if (i == 0){  // if the graph is composed only of clique the mincut will be zeros since the first cc
+					minCut = cut;
+					val = i;
+				} else {
+					if (cut < minCut and cut > 0){
+						val = i;
+						minCut = cut;
+					}
 				}
-				out << endl;
+				++i;
 			}
-		}
+			
+			uint index(0);
+			for (auto&& cutoff: CC){
+				if (index == val){
+					cout <<"computing final cluster with cutoff:" <<  cutoff << " and min cut:" << minCut << endl;
+					pcliqueToNodes = {};
+					nodeToPCliques = {};
+					nbPCliques = 0;
+					nodeSingletons = {};
+					pCliquesAboveThresh = {};
+					computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
+					computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
+					break;
+				}
+				++index;
+			}
+			for (auto p(pcliqueToNodes.begin()); p != pcliqueToNodes.end(); ++p){
+				if (not p->second.empty()){
+					for (auto&& node : p->second){
+						out << node << " " ;
+					}
+					out << endl;
+				}
+			}
+	}
 	} else {
 		cout << "Usage : ./clustering_cliqueness src_output" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;
