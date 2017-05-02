@@ -481,7 +481,8 @@ int main(int argc, char** argv){
 		for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
 			//~ cout << node->first << endl;
 			if (not (visited.count(node->first))){
-				nodesInConnexComp.push_back({});
+				unordered_set<uint> s;
+				nodesInConnexComp.push_back(s);
 				DFS(node->first, nodeToNeighborsGlobal, visited, nodesInConnexComp.back());
 				++ nbConnexComp;
 			}
@@ -489,7 +490,10 @@ int main(int argc, char** argv){
 		cout << "Connected components: " << nbConnexComp << endl;
 
 		ofstream out(outFileName);
-		for (uint c(0); c < nodesInConnexComp.size(); ++c){
+		mutex mm;
+		uint c(0);
+		#pragma omp parallel for
+		for (c=0; c < nodesInConnexComp.size(); ++c){
 			unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
 			for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
 				if (nodesInConnexComp[c].count(node->first)){
@@ -503,9 +507,11 @@ int main(int argc, char** argv){
 			cout << "Computing graph..." << endl;
 			computeCCandDeg(nodeToNeighbors, nodeToMetrics, degToNode, CC);
 			ofstream outm("nodes_metrics.txt");
+			mm.lock();
 			for (auto node(nodeToMetrics.begin()); node != nodeToMetrics.end(); ++node){
 				outm << node->first << " " << node->second.first << " " << node->second.second << endl; 
 			}
+			mm.unlock();
 			//~ unordered_map <uint, set<uint>> pcliqueToNodes;
 			vector< set<uint>> pcliqueToNodes;
 			unordered_map <uint, unordered_set<uint>> nodeToPCliques;
@@ -564,12 +570,15 @@ int main(int argc, char** argv){
 					//~ out << endl;
 				//~ }
 			//~ }
+			
 			for (uint p(0); p < pcliqueToNodes.size(); ++p){
 				if (not pcliqueToNodes[p].empty()){
+					mm.lock();
 					for (auto&& node : pcliqueToNodes[p]){
 						out << node << " " ;
 					}
 					out << endl;
+					mm.unlock();
 				}
 			}
 		}
