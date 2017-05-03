@@ -324,7 +324,7 @@ uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <ui
 					modif1 = true;
 				}
 				
-			} else if ((not pcliqueToNodes[clust2].empty()) and pCliquesAboveThresh.count(clust2) and clust1 != clust2){
+			} else if ((not pcliqueToNodes[clust1].empty()) and pCliquesAboveThresh.count(clust2) and clust1 != clust2){
 				set<uint> interC;
 				set_intersection(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(interC, interC.begin()));
 				if (not interC.empty()){
