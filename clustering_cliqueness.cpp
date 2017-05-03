@@ -353,9 +353,15 @@ uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <ui
 int main(int argc, char** argv){
 
 	if (argc > 1){
+		bool approx(false);
 		string outFileName("final_g_clusters.txt");
 		if (argc > 2){
 			outFileName = argv[2];
+			if (argc > 3){
+				if ((string)argv[3] == "--approx"){
+					approx = true;
+				}
+			}
 		}
 		
 		string fileName(argv[1]);
@@ -409,15 +415,34 @@ int main(int argc, char** argv){
 			//~ unordered_set<uint> nodeSingletons;
 			//~ unordered_set<uint> pCliquesAboveThresh;
 			cout << "Testing cutoff values..." << endl;
-
 			vector<float>vecCC;
-			for (auto&& cutoff: CC){
-				vecCC.push_back(cutoff);
+			if (approx){
+				cout << "approx" << endl;
+				float prev(1.1), cutoffTrunc;
+				uint value;
+				if (CC.size() > 10000){
+					value = 1000;
+				} else {
+					value = 100;
+				}
+				for (auto&& cutoff: CC){
+					cutoffTrunc = trunc(cutoff * value)/value;
+					if (cutoffTrunc < prev){
+						prev = cutoffTrunc;
+						vecCC.push_back(cutoffTrunc);
+					}
+				}
+			} else {
+				for (auto&& cutoff: CC){
+					vecCC.push_back(cutoff);
+				}
 			}
 			vector<uint> globalCut(vecCC.size());
 			uint cuto(0);
 			//~ for (auto&& cutoff: CC){
 			cout << vecCC.size() << " coefficients to test" << endl;
+
+			
 			#pragma omp parallel for
 			for (cuto = 0; cuto < vecCC.size(); ++cuto){
 				float cutoff(vecCC[cuto]); 
@@ -481,7 +506,7 @@ int main(int argc, char** argv){
 			}
 		}
 	} else {
-		cout << "Usage : ./clustering_cliqueness (src_output)" << endl;
+		cout << "Usage : ./clustering_cliqueness (src_output) (--approx)" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;
 	}
 }
