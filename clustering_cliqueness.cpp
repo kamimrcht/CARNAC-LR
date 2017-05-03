@@ -356,7 +356,11 @@ int main(int argc, char** argv){
 		bool approx(false);
 		string outFileName("final_g_clusters.txt");
 		if (argc > 2){
-			outFileName = argv[2];
+			if ((string)argv[2] == "--approx"){
+				approx = true;
+			} else {
+				outFileName = argv[2];
+			}
 			if (argc > 3){
 				if ((string)argv[3] == "--approx"){
 					approx = true;
