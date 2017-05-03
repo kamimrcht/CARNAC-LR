@@ -83,7 +83,7 @@ if (len(sys.argv) > 2):
 		print("precision =", precision)
 		sensitivity = compute_sensitivity(max_i, sumR_ij, unclassified)
 		print("sensitivity =", sensitivity)
-		print("F1 measure =", 2 * precision * sensitivity / (precision + sensitivity))
+		print("F-measure =", 2 * precision * sensitivity / (precision + sensitivity))
 else:
 	print("Outputs metrics for clusters")
 	print("Usage: python3 validate_clustering.py true_clusters.txt final_g_clusters.txt")
