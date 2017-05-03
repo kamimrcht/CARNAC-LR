@@ -381,7 +381,7 @@ int main(int argc, char** argv){
 		ofstream out(outFileName);
 		mutex mm;
 		uint c(0);
-		#pragma omp parallel for
+		//~ #pragma omp parallel for
 		for (c=0; c < nodesInConnexComp.size(); ++c){
 			unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
 			for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
@@ -396,35 +396,47 @@ int main(int argc, char** argv){
 			cout << "Computing graph..." << endl;
 			computeCCandDeg(nodeToNeighbors, nodeToMetrics, degToNode, CC);
 			ofstream outm("nodes_metrics.txt");
-			mm.lock();
+			//~ mm.lock();
 			for (auto node(nodeToMetrics.begin()); node != nodeToMetrics.end(); ++node){
 				outm << node->first << " " << node->second.first << " " << node->second.second << endl; 
 			}
-			mm.unlock();
-			//~ unordered_map <uint, set<uint>> pcliqueToNodes;
-			vector< set<uint>> pcliqueToNodes;
-			unordered_map <uint, unordered_set<uint>> nodeToPCliques;
-			uint nbPCliques(0), cut(0);
-			vector<uint> globalCut;
+			//~ mm.unlock();
+			//~ vector< set<uint>> pcliqueToNodes;
+			//~ unordered_map <uint, unordered_set<uint>> nodeToPCliques;
+			//~ uint nbPCliques(0), cut(0);
+			
 			// compute min cut for each clustering coef value
-			unordered_set<uint> nodeSingletons;
-			unordered_set<uint> pCliquesAboveThresh;
+			//~ unordered_set<uint> nodeSingletons;
+			//~ unordered_set<uint> pCliquesAboveThresh;
 			cout << "Testing cutoff values..." << endl;
+
+			vector<float>vecCC;
 			for (auto&& cutoff: CC){
-				nbPCliques = 0;
-				pcliqueToNodes = {};
-				nodeToPCliques = {};
-				nodeSingletons = {};
-				pCliquesAboveThresh = {};
+				vecCC.push_back(cutoff);
+			}
+			vector<uint> globalCut(vecCC.size());
+			uint cuto(0);
+			//~ for (auto&& cutoff: CC){
+			cout << vecCC.size() << " coefficients to test" << endl;
+			#pragma omp parallel for
+			for (cuto = 0; cuto < vecCC.size(); ++cuto){
+				float cutoff(vecCC[cuto]); 
+				uint nbPCliques(0), cut(0);
+				vector< set<uint>> pcliqueToNodes;
+				unordered_map <uint, unordered_set<uint>> nodeToPCliques;
+				unordered_set<uint> nodeSingletons;
+				unordered_set<uint> pCliquesAboveThresh;
 				computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
 				
 				cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-				globalCut.push_back(cut);
+				mm.lock();
+				globalCut[cuto] = cut;
+				mm.unlock();
 			}
 			uint i(0), minCut(0), val(0);
 			// get the min cut over all cc values
 			for (auto&& cut : globalCut){
-				if (i == 0){  // if the graph is composed only of clique the mincut will be zeros since the first cc
+				if (i == 0){  // if the graph is composed only of clique the mincut will be zeros since the first cc 
 					minCut = cut;
 					val = i;
 				} else {
@@ -437,6 +449,12 @@ int main(int argc, char** argv){
 			}
 			
 			uint index(0);
+
+			vector< set<uint>> pcliqueToNodes;
+			unordered_map <uint, unordered_set<uint>> nodeToPCliques;
+			uint nbPCliques(0), cut(0);
+			unordered_set<uint> nodeSingletons;
+			unordered_set<uint> pCliquesAboveThresh;
 			for (auto&& cutoff: CC){
 				if (index == val){
 					cout <<"computing final cluster with cutoff:" <<  cutoff << " and min cut:" << minCut << endl;
@@ -463,7 +481,7 @@ int main(int argc, char** argv){
 			}
 		}
 	} else {
-		cout << "Usage : ./clustering_cliqueness src_output" << endl;
+		cout << "Usage : ./clustering_cliqueness (src_output)" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;
 	}
 }
