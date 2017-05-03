@@ -122,7 +122,6 @@ void computeCCandDeg(unordered_map <uint, unordered_set<uint>>& nodeToNeighbors,
 
 
 void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<uint>>& degToNode, vector<set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToPCliques, unordered_map <uint, pair<float, uint>>& nodeToMetrics, uint& nbPCliques, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& pCliquesAboveThresh){
-//~ void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<uint>>& degToNode, unordered_map <uint, set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToPCliques, unordered_map <uint, pair<float, uint>>& nodeToMetrics, uint& nbPCliques, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& pCliquesAboveThresh){
 	unordered_set<uint> neighbors;
 	for (auto deg(degToNode.begin()); deg != degToNode.end(); ++deg){
 		for (auto&& node : deg->second){  // for all nodes by decreasing degrees
@@ -133,7 +132,6 @@ void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<ui
 					nodeToPCliques.insert({node, {nbPCliques}});
 				}
 				pcliqueToNodes.push_back({node});
-				//~ pcliqueToNodes.insert({nbPCliques, {node}});
 				neighbors = nodeToNeighbors[node];
 				for (auto&& neigh: neighbors){  // include neighbours in the pseudo clique
 					if (nodeToPCliques.count(neigh)){
@@ -141,17 +139,11 @@ void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<ui
 					} else {
 						nodeToPCliques.insert({neigh, {nbPCliques}});
 					}
-					//~ pcliqueToNodes[nbPCliques].insert(neigh);
 					pcliqueToNodes.back().insert(neigh);
 				}
 				 pCliquesAboveThresh.insert(nbPCliques);
 				++ nbPCliques;
 			} else {  // nodes under the threshold
-				//~ if (not nodeToPCliques.count(node)){  // if the node is not already in a cluster create a singleton
-					//~ nodeToPCliques.insert({node, {nbPCliques}});
-					//~ pcliqueToNodes[nbPCliques].insert(node);
-					//~ ++ nbPCliques;
-				//~ }
 				if (not nodeToPCliques.count(node)){  // if the node is not already in a cluster create a singleton
 					nodeToPCliques.insert({node, {nbPCliques}});
 					pcliqueToNodes.push_back({node});
@@ -165,17 +157,6 @@ void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<ui
 
 
 void mergeProcedure(vector<set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, bool merginFirst=false){
-//~ void mergeProcedure(unordered_map <uint, set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, bool merginFirst=false){
-	 
-	//~ uint nb(0);
-	//~ for (auto&& p : pcliqueToNodes){
-	// for (auto p(pcliqueToNodes.begin()); p != pcliqueToNodes.end(); ++p){
-		// if (not p->second.empty()){
-		//~ if (not p.empty()){
-			//~ ++nb;
-		//~ }
-	//~ }
-	
 	if (pcliqueToNodes[indexC1].size() >= pcliqueToNodes[indexC2].size() or merginFirst){  // merge c2 in c1
 		pcliqueToNodes[indexC1].insert(pcliqueToNodes[indexC2].begin(), pcliqueToNodes[indexC2].end());
 		pcliqueToNodes[indexC2].clear();
@@ -197,8 +178,6 @@ void mergeProcedure(vector<set<uint>>& pcliqueToNodes, uint indexC1, uint indexC
 			}
 		}
 	}
-	//~ nb = 0;
-
 }
 
 
@@ -226,7 +205,6 @@ void assignClusterDFS(uint node, unordered_map <uint, set<uint>>& temporaryClust
 }
 
 uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, vector<set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff, bool& modif){
-//~ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_map <uint, set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff, bool& modif){
 	uint cut1(0), cut2(0), cut(0);
 	for (auto&& node : interC){
 		for (auto&& neigh : nodeToNeighbors[node]){
@@ -261,7 +239,6 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 			pcliqueToNodes[indexC1] = {};
 			for (auto newClust(temporaryClusters.begin()); newClust != temporaryClusters.end(); ++newClust){
 				pcliqueToNodes.push_back(newClust->second);
-				//~ pcliqueToNodes.insert({newClust->first , newClust->second});
 			}
 		} else {
 			pCliquesAboveThresh.erase(pcliqueToNodes.size());
@@ -291,7 +268,6 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 			pcliqueToNodes[indexC2] = {};
 			for (auto newClust(temporaryClusters.begin()); newClust != temporaryClusters.end(); ++newClust){
 				pcliqueToNodes.push_back(newClust->second);
-				//~ pcliqueToNodes.insert({newClust->first , newClust->second});
 			}
 		} else {
 			pCliquesAboveThresh.erase(pcliqueToNodes.size());
@@ -303,7 +279,6 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 
 
 uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, float cutoff, unordered_set<uint>& nodeSingletons, unordered_set<uint>& pCliquesAboveThresh,  unordered_map <uint, pair<float, uint>>& nodeToMetrics){
-//~ uint  computeClustersAndCut(unordered_map <uint, set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, float cutoff, unordered_set<uint>& nodeSingletons, unordered_set<uint>& pCliquesAboveThresh,  unordered_map <uint, pair<float, uint>>& nodeToMetrics){
 	float unionCC(0);
 	uint cut(0);
 	bool modif(false), modif1(true);
@@ -320,7 +295,6 @@ uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <ui
 				if (not interC.empty()){  // some nodes belong to both clusters
 					modif = true;
 					if (interC.size() ==pcliqueToNodes[clust1].size() and interC.size() == pcliqueToNodes[clust2].size()){
-						//~ clust2->second = {};
 						pcliqueToNodes[clust2] = {};
 					} else {
 						set_union(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(unionC, unionC.begin()));
@@ -362,93 +336,9 @@ uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <ui
 		}
 	}
 
-
-	
-	//~ while (modif1){
-		//~ modif1 = false;
-		//~ for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ){
-			//~ if (not clust1->second.empty()){
-				//~ for (auto clust2(pcliqueToNodes.begin()); clust2 != pcliqueToNodes.end(); ){
-					//~ modif = false;
-					//~ if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first) and pCliquesAboveThresh.count(clust2->first))){
-						//~ if (clust1 != clust2){
-							//~ set<uint> unionC;
-							//~ set<uint> interC;
-							//~ unionCC = 0;
-							//~ set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							//~ if (not interC.empty()){  // some nodes belong to both clusters
-								//~ modif = true;
-								//~ if (interC.size() == clust1->second.size() and interC.size() == clust2->second.size()){
-									//~ clust2->second = {};
-								//~ } else {
-									//~ set_union(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(unionC, unionC.begin()));
-									//~ float cardUnion(0);
-									//~ for (auto&& node : unionC){
-										//~ for (auto&& neigh : nodeToNeighbors[node]){
-											//~ if (unionC.count(neigh)){
-												//~ ++cardUnion;
-											//~ }
-										//~ }
-									//~ }
-									//~ unionCC = cardUnion / (unionC.size() * (unionC.size() - 1));
-									//~ if (unionCC >= 100 * cutoff/100){
-										//~ mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster);
-										//~ modif1 = true;
-									//~ } else {
-										//~ cutProcedure(interC, nodeToNeighbors,  pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, pCliquesAboveThresh, nodeToMetrics, cutoff, modif1);
-									//~ }
-								//~ }
-							//~ }
-						//~ }
-					//~ } else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust1->first))){
-						//~ if (clust1 != clust2){
-							
-							//~ set<uint> interC;
-							//~ set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							//~ if (not interC.empty()){
-								//~ modif = true; 
-								//~ mergeProcedure(pcliqueToNodes, clust1->first, clust2->first, nodeToCluster, true);
-								//~ modif1 = true;
-							//~ }
-						//~ }
-					//~ } else if (not (clust2->second.empty() and pCliquesAboveThresh.count(clust2->first))){
-						//~ if (clust1 != clust2){
-							//~ set<uint> interC;
-							//~ set_intersection(clust1->second.begin(), clust1->second.end(), clust2->second.begin(), clust2->second.end(), inserter(interC, interC.begin()));
-							//~ if (not interC.empty()){
-								//~ modif = true;
-								//~ mergeProcedure(pcliqueToNodes, clust2->first, clust1->first, nodeToCluster, true);
-								//~ modif1 = true;
-							//~ }
-						//~ }
-					//~ }
-					//~ if (not modif){
-						//~ ++clust2;
-					//~ }
-				//~ }
-			//~ } else {
-				//~ modif = false;
-			//~ }
-			//~ if (not modif){
-				//~ ++clust1;
-			//~ }
-		//~ }
-	//~ }
-
-	
 	cut = 0;
-	//~ for (auto clust1(pcliqueToNodes.begin()); clust1 != pcliqueToNodes.end(); ++clust1){
-		//~ for (auto && node : clust1->second){
-			//~ for (auto&& n : nodeToNeighbors[node]){
-				//~ if (not (clust1->second.count(n))){
-					//~ ++cut;
-				//~ }
-			//~ }
-		//~ }
-	//~ }
 	for (uint clust1(0); clust1 < pcliqueToNodes.size(); ++clust1){
 		for (auto && node : pcliqueToNodes[clust1]){
-		//~ for (auto && node : pcliqueToNodespcliqueToNodes[clust1]){
 			for (auto&& n : nodeToNeighbors[node]){
 				if (not (pcliqueToNodes[clust1].count(n))){
 					++cut;
@@ -479,7 +369,6 @@ int main(int argc, char** argv){
 		unordered_set<uint> visited;
 		vector<unordered_set<uint>> nodesInConnexComp;
 		for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
-			//~ cout << node->first << endl;
 			if (not (visited.count(node->first))){
 				unordered_set<uint> s;
 				nodesInConnexComp.push_back(s);
@@ -562,15 +451,6 @@ int main(int argc, char** argv){
 				}
 				++index;
 			}
-			//~ for (auto p(pcliqueToNodes.begin()); p != pcliqueToNodes.end(); ++p){
-				//~ if (not p->second.empty()){
-					//~ for (auto&& node : p->second){
-						//~ out << node << " " ;
-					//~ }
-					//~ out << endl;
-				//~ }
-			//~ }
-			
 			for (uint p(0); p < pcliqueToNodes.size(); ++p){
 				if (not pcliqueToNodes[p].empty()){
 					mm.lock();
