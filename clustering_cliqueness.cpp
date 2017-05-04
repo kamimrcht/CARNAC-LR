@@ -144,11 +144,11 @@ void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<ui
 				 pCliquesAboveThresh.insert(nbPCliques);
 				++ nbPCliques;
 			} else {  // nodes under the threshold
-				if (not nodeToPCliques.count(node)){  // if the node is not already in a cluster create a singleton
-					nodeToPCliques.insert({node, {nbPCliques}});
-					pcliqueToNodes.push_back({node});
-					++ nbPCliques;
-				}
+				//~ if (not nodeToPCliques.count(node)){  // if the node is not already in a cluster create a singleton
+					//~ nodeToPCliques.insert({node, {nbPCliques}});
+					//~ pcliqueToNodes.push_back({node});
+					//~ ++ nbPCliques;
+				//~ }
 			}
 		}
 	}
@@ -229,7 +229,7 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 		unordered_map <uint,uint> temporaryNodesToClusters;
 		uint indexCluster(pcliqueToNodes.size());
 		for (auto&& node : pcliqueToNodes[indexC1]){
-			if (not temporaryNodesToClusters.count(node)){
+			if (not temporaryNodesToClusters.count(node) or nodeToMetrics[node].second >= cutoff){
 				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC1], pCliquesAboveThresh,nodeToMetrics, cutoff);
 				++indexCluster;
 			}
@@ -258,7 +258,7 @@ uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& 
 		unordered_map <uint, uint> temporaryNodesToClusters;
 		uint indexCluster(pcliqueToNodes.size());
 		for (auto&& node : pcliqueToNodes[indexC2]){
-			if (not temporaryNodesToClusters.count(node)){
+			if (not temporaryNodesToClusters.count(node) or nodeToMetrics[node].second >= cutoff){
 				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC2], pCliquesAboveThresh, nodeToMetrics, cutoff);
 				++indexCluster;
 			}
