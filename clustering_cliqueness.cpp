@@ -204,7 +204,6 @@ void sortVecNodes(vector<Node>& vecNodes){
 
 
 void computePseudoCliques(float cutoff, float lastcutoff, vector<Node>& vecNodes){
-	sortVecNodes(vecNodes);  // sort by decreasing degree
 	for (uint i(0); i < vecNodes.size(); ++i){
 		if (lastcutoff > -1) {
 			if (vecNodes[i].CC >= cutoff and vecNodes[i].CC < lastcutoff) {   // new clusters to compute
@@ -473,17 +472,9 @@ int main(int argc, char** argv){
 		
 		string fileName(argv[1]);
         ifstream refFile(fileName);
-
-
-	
-	//~ string fileName(argv[1]);
-	//~ string outFileName("final_g_clusters.txt");
-		//~ ifstream refFile(fileName);
 		vector<Node> vecNodesGlobal;
 		cout << "Parsing..." << endl;
 		parsingSRC(refFile, vecNodesGlobal);
-
-		//~ uint nbConnexComp(0);
 		unordered_set<uint> visited;
 		vector<set<uint>> nodesInConnexComp;
 		bool b(false);
@@ -492,7 +483,6 @@ int main(int argc, char** argv){
 				set<uint> s;
 				DFS(n, vecNodesGlobal, visited, s, b, 0);
 				nodesInConnexComp.push_back(s);
-				//~ ++ nbConnexComp;
 			}
 		}
 		cout << "Connected components: " << nodesInConnexComp.size() << endl;
@@ -539,21 +529,19 @@ int main(int argc, char** argv){
 			uint minCut(0);
 			vector<set<uint>> clustersToKeep;
 			uint ccc(0);
+			sortVecNodes(vecNodes);  // sort by decreasing degree
 			#pragma omp parallel for
-			for (ccc = 0; ccc < vecCC.size(); ++ccc){
-			//~ for (ccc = 0; ccc < ClCo.size(); ++ccc){
-				
+			//~ for (ccc = 0; ccc < vecCC.size(); ++ccc){
+			for (ccc = 0; ccc < ClCo.size(); ++ccc){
 				uint cut;
 				float precCutoff = -1;
-				//~ float cutoff( ClCo[ccc]);
-				float cutoff( vecCC[ccc]);
+				float cutoff( ClCo[ccc]);
 				if (ccc != 0){
-					precCutoff = vecCC[ccc - 1];
+					precCutoff = ClCo[ccc - 1];
 				}
-				mm.lock();
-				computePseudoCliques(cutoff, precCutoff, vecNodes);
-				mm.unlock();
 				vector<Node> vecNodesCpy = vecNodes;
+				computePseudoCliques(cutoff, -1, vecNodesCpy);  // if parallelization we cannot use the result from the precedent cc
+				// todo : remember for each node for each cc the clusters -> clusters will be a vector of vclust
 				vector<set<uint>> clusters(vecNodesCpy.size());
 				cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters);
 				mm.lock();
@@ -572,9 +560,6 @@ int main(int argc, char** argv){
 						mm.unlock();
 					}
 				}
-				mm.lock();
-				vecNodes = vecNodesCpy;
-				mm.unlock();
 			}
 			
 			vector <uint> v;
