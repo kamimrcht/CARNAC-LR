@@ -532,12 +532,12 @@ int main(int argc, char** argv){
 			sortVecNodes(vecNodes);  // sort by decreasing degree
 			#pragma omp parallel for
 			//~ for (ccc = 0; ccc < vecCC.size(); ++ccc){
-			for (ccc = 0; ccc < ClCo.size(); ++ccc){
+			for (ccc = 0; ccc < vecCC.size(); ++ccc){
 				uint cut;
 				float precCutoff = -1;
-				float cutoff( ClCo[ccc]);
+				float cutoff(vecCC[ccc]);
 				if (ccc != 0){
-					precCutoff = ClCo[ccc - 1];
+					precCutoff = vecCC[ccc - 1];
 				}
 				vector<Node> vecNodesCpy = vecNodes;
 				computePseudoCliques(cutoff, -1, vecNodesCpy);  // if parallelization we cannot use the result from the precedent cc
