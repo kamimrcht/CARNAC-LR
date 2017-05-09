@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <fstream>
 #include <vector>
@@ -25,14 +24,56 @@
 using namespace std;
 
 
-void DFS(uint n, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& visited, unordered_set<uint>& nodesInConnexComp){
-	unordered_set<uint> neighbours;
+
+struct Node{
+	uint index;
+	uint degree;
+	float CC;
+	vector<uint> cluster;
+	vector<uint> neighbors;
+	bool operator <(const Node&n) const
+    {
+        return (degree < n.degree);
+    }
+};
+
+struct Node_hash {
+    inline std::size_t operator()(const Node& n) const {
+        return pow(n.index, 31) + n.degree;
+    }
+};
+
+
+inline bool operator == (Node const& n1, Node const& n2)
+{
+    return (n1.index == n2.index); 
+}
+
+
+vector<uint> removeDuplicates(vector<uint>& vec){
+	sort(vec.begin(), vec.end());
+	vec.erase(unique(vec.begin(), vec.end()), vec.end());
+	return vec;
+}
+
+vector<float> removeDuplicatesCC(vector<float>& vec){
+	sort(vec.begin(), vec.end());
+	vec.erase(unique(vec.begin(), vec.end()), vec.end());
+	return vec;
+}
+
+void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
+	unordered_set<uint> neighbors;
 	if (not visited.count(n)){
+		if (vecNodes[n].CC >= cutoff){
+			above = true;
+		}
 		visited.insert(n);
 		nodesInConnexComp.insert(n);
-		neighbours = nodeToNeighbors[n];
-		for (auto&& neigh : neighbours){
-			DFS(neigh, nodeToNeighbors, visited, nodesInConnexComp);
+		neighbors = {};
+		copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+		for (auto&& neigh : neighbors){
+			DFS(neigh, vecNodes, visited, nodesInConnexComp, above, cutoff);
 		}
 	}
 }
@@ -47,306 +88,368 @@ vector<string> split(const string &s, char delim){
 	return elems;
 }
 
-// awaits  input lines like this 0:50-25-50.000000 27-32-64.000000, ignores the positions information
-void parsingSRC(ifstream & refFile, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors){
+
+void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
 	string listNodes;
 	// header
 	getline(refFile, listNodes);
 	getline(refFile, listNodes);
 	getline(refFile, listNodes);
+	vector<uint> clust, neighbs;
 	vector<string> splitted1, splitted2, splitted3;
-	uint read, target;
+	uint read, target, maxNbNodes(0);
+	unordered_map <uint, uint> seenNodes;
 	while (not refFile.eof()){
 		getline(refFile, listNodes);
 		splitted1 = split(listNodes, ':');
 		if (splitted1.size() > 1){
 			splitted2 = split(splitted1[1], ' ');
-			unordered_set<uint> reads;
-			target = stoi(splitted1[0]);  // target read
+			target = stoi(splitted1[0]);  // target read's index
 			if (not splitted2.empty()){
 				for (uint i(0); i < splitted2.size(); ++i){
 					splitted3 = split(splitted2[i], '-');
 					read = stoi(splitted3[0]);  // recruited read
 					if (read != target){
-						reads.insert(read);
-						if (nodeToNeighbors.count(read)){
-							nodeToNeighbors[read].insert(target);
-						} else {
-							nodeToNeighbors.insert({read, {target}});
+						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
+							clust = {}; neighbs = {};
+							Node t({target, 0, 0, clust, neighbs});
+							vecNodes.push_back({t});  // store in vecNodes
+							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
+						}
+						if (seenNodes.count(read)){ // this neighbour is already in the vector of nodes
+							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
+							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
+						} else {  // new neighbor not already in the vector of nodes
+							clust = {}; neighbs = {};
+							Node r({read, 0, 0, clust, neighbs});
+							vecNodes.push_back({r});
+							uint position(vecNodes.size() - 1);
+							seenNodes.insert({read, position});
+							vecNodes[seenNodes[target]].neighbors.push_back(vecNodes.size() - 1);  // store read as neighbor of target
+							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
 						}
 					}
 				}
-			}
-			if (nodeToNeighbors.count(target)){
-				for (auto&& n : reads){
-					nodeToNeighbors[target].insert(n);
-				}
-			} else {
-				nodeToNeighbors.insert({target, reads});
 			}
 		}   
 	}
 }
 
-void computeCCandDeg(unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_map <uint, pair<float, uint>>& nodeToMetrics, map <uint, vector<uint>, std::greater<uint>>& degToNode, set<float, std::greater<float>>& CC){
-	uint deg;
-	float clusteringCoef(0), pairs(0);
-	for (auto node(nodeToNeighbors.begin()); node != nodeToNeighbors.end(); ++node){
-		unordered_set <uint> neighbors(node->second.begin(), node->second.end());
-		float clusteringCoef(0);
-		float pairs(0);
-		deg = neighbors.size();
-		if (deg > 1){
-			for (auto&& neigh : node->second){  // for each neighbor of the node
-				for (auto&& neigh2 : nodeToNeighbors.at(neigh)){ // for each neighbor of a neighbor
-					if (neighbors.count(neigh2)) {  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
+
+//~ void computeCCandDeg(vector<Node>& vecNodes, set<float, std::greater<float>>& ClCo){
+void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
+	float pairs, clusteringCoef;
+	uint totalPairs;
+	unordered_set<uint> neighbors;
+	// start by removing double occurrences in neighbors
+	for (uint n(0); n < vecNodes.size(); ++n){
+		vecNodes[n].neighbors = removeDuplicates(vecNodes[n].neighbors);
+		vecNodes[n].degree = vecNodes[n].neighbors.size();
+	}
+	for (uint n(0); n < vecNodes.size(); ++n){
+		if (vecNodes[n].degree > 1){
+			pairs = 0;
+			neighbors = {};
+			copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+			for (auto&& neigh : neighbors){  // for each neighbor of the node
+				for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
+					if (neighbors.count(neigh2)){  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
 						++pairs;
 					}
 				}
 			}
-		}
-		uint totalPairs(deg * (deg - 1));
-		if (totalPairs > 0){
-			clusteringCoef = pairs/totalPairs;
-		}
-		nodeToMetrics.insert({node->first, {clusteringCoef, deg}});
-		if (degToNode.count(deg)){
-			degToNode[deg].push_back(node->first);
+			totalPairs = vecNodes[n].neighbors.size() * (vecNodes[n].neighbors.size() - 1);
+			if (totalPairs > 0){
+				clusteringCoef = pairs/totalPairs;
+				vecNodes[n].CC = clusteringCoef;
+				ClCo.push_back(clusteringCoef);
+				//~ ClCo.insert(clusteringCoef);
+			} else {
+				//~ ClCo.insert(0);
+				ClCo.push_back(0);
+			}
 		} else {
-			degToNode.insert({deg, {node->first}});
+			//~ ClCo.insert(0);
+			ClCo.push_back(0);
 		}
-		CC.insert(clusteringCoef);
+	}
+	ClCo = removeDuplicatesCC(ClCo);
+	sort(ClCo.begin(), ClCo.end());
+	reverse(ClCo.begin(), ClCo.end());
+}
+
+
+void sortVecNodes(vector<Node>& vecNodes){
+	unordered_map <uint, uint> indexReadsBef;
+	for (uint i(0); i < vecNodes.size(); ++i){
+		indexReadsBef.insert({vecNodes[i].index, i});
+	}
+	sort(vecNodes.begin(), vecNodes.end());
+	reverse(vecNodes.begin(), vecNodes.end());
+	unordered_map <uint, uint> indexReadsAf;
+	for (uint i(0); i < vecNodes.size(); ++i){
+		indexReadsAf.insert({indexReadsBef[vecNodes[i].index], i});  // former and new index in vecNodes
 	}
 	
-}
-
-
-void computePseudoCliques(float cutoff, map <uint, vector<uint>, std::greater<uint>>& degToNode, vector<set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToPCliques, unordered_map <uint, pair<float, uint>>& nodeToMetrics, uint& nbPCliques, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& pCliquesAboveThresh){
-	unordered_set<uint> neighbors;
-	for (auto deg(degToNode.begin()); deg != degToNode.end(); ++deg){
-		for (auto&& node : deg->second){  // for all nodes by decreasing degrees
-			if (nodeToMetrics[node].first >= cutoff){  // do a new pseudo clique from this node
-				if (nodeToPCliques.count(node)){ 
-					nodeToPCliques[node].insert(nbPCliques);
-				} else {
-					nodeToPCliques.insert({node, {nbPCliques}});
-				}
-				pcliqueToNodes.push_back({node});
-				neighbors = nodeToNeighbors[node];
-				for (auto&& neigh: neighbors){  // include neighbours in the pseudo clique
-					if (nodeToPCliques.count(neigh)){
-						nodeToPCliques[neigh].insert(nbPCliques);
-					} else {
-						nodeToPCliques.insert({neigh, {nbPCliques}});
-					}
-					pcliqueToNodes.back().insert(neigh);
-				}
-				 pCliquesAboveThresh.insert(nbPCliques);
-				++ nbPCliques;
-			} else {  // nodes under the threshold
-				//~ if (not nodeToPCliques.count(node)){  // if the node is not already in a cluster create a singleton
-					//~ nodeToPCliques.insert({node, {nbPCliques}});
-					//~ pcliqueToNodes.push_back({node});
-					//~ ++ nbPCliques;
-				//~ }
-			}
+	vector<uint> vec;
+	
+	for (uint i(0); i < vecNodes.size(); ++i){
+		vec = {};
+		for (auto&& n : vecNodes[i].neighbors){
+			vec.push_back(indexReadsAf[n]);
 		}
+		vecNodes[i].neighbors = vec;
 	}
 }
 
 
-
-void mergeProcedure(vector<set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, bool merginFirst=false){
-	if (pcliqueToNodes[indexC1].size() >= pcliqueToNodes[indexC2].size() or merginFirst){  // merge c2 in c1
-		pcliqueToNodes[indexC1].insert(pcliqueToNodes[indexC2].begin(), pcliqueToNodes[indexC2].end());
-		pcliqueToNodes[indexC2].clear();
-		for (auto&& node : pcliqueToNodes[indexC1]){
-			if (nodeToCluster.count(node)){
-				nodeToCluster[node] = indexC1;
-			} else {
-				nodeToCluster.insert({node, indexC1});
+void computePseudoCliques(float cutoff, float lastcutoff, vector<Node>& vecNodes){
+	sortVecNodes(vecNodes);  // sort by decreasing degree
+	for (uint i(0); i < vecNodes.size(); ++i){
+		if (lastcutoff > -1) {
+			if (vecNodes[i].CC >= cutoff and vecNodes[i].CC < lastcutoff) {   // new clusters to compute
+				vecNodes[i].cluster.push_back(i);  // node i has its own set
+				for (auto&& neigh : vecNodes[i].neighbors){
+					vecNodes[neigh].cluster.push_back(i);  // neighbor of the node i will also be in the set
+				}
 			}
-		}
-	} else { // merge c1 in c2
-		pcliqueToNodes[indexC2].insert(pcliqueToNodes[indexC1].begin(), pcliqueToNodes[indexC1].end());
-		pcliqueToNodes[indexC1].clear();
-		for (auto&& node : pcliqueToNodes[indexC2]){
-			if (nodeToCluster.count(node)){
-				nodeToCluster[node] = indexC2;
-			} else {
-				nodeToCluster.insert({node, indexC2});
-			}
-		}
-	}
-}
-
-
-void assignClusterDFS(uint node, unordered_map <uint, set<uint>>& temporaryClusters, unordered_map <uint, uint>& temporaryNodesToClusters, uint& indexCluster, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, set<uint>& pcliqueOut, set<uint>& pcliqueIn, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff){
-		bool above(false);
-		if (temporaryClusters.count(indexCluster)){
-			temporaryClusters[indexCluster].insert(node);
-			temporaryNodesToClusters.insert({node, indexCluster});
 		} else {
-			temporaryClusters.insert({indexCluster, {node}});
-			temporaryNodesToClusters.insert({node, indexCluster});
-			if (nodeToMetrics[node].first >= cutoff){
-				pCliquesAboveThresh.insert(indexCluster);
-			}
-		}
-		for (auto&& neigh : nodeToNeighbors[node]){
-			
-			if (not temporaryNodesToClusters.count(neigh)){
-				if (not (pcliqueOut.count(neigh)) and pcliqueIn.count(neigh)){
-					assignClusterDFS(neigh, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, pcliqueOut, pcliqueIn, pCliquesAboveThresh, nodeToMetrics, cutoff);
+			if (vecNodes[i].CC >= cutoff){
+				vecNodes[i].cluster.push_back(i);  // node i has its own set
+				for (auto&& neigh : vecNodes[i].neighbors){
+					vecNodes[neigh].cluster.push_back(i);  // neighbor of the node i will also be in the set
 				}
 			}
 		}
-
+	}
 }
 
-uint cutProcedure(set<uint>& interC, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, vector<set<uint>>& pcliqueToNodes, uint indexC1, uint indexC2, unordered_map <uint, uint>& nodeToCluster, unordered_set<uint>& pCliquesAboveThresh, unordered_map <uint, pair<float, uint>>& nodeToMetrics, float cutoff, bool& modif){
+
+
+float computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
+	float cardUnion(0);
+	unordered_set<uint> neighbors;
+	for (auto&& n : unionC){
+		neighbors = {};
+		copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+		for (auto&& neigh : vecNodes[n].neighbors){
+			if (unionC.count(neigh)){
+				++cardUnion;
+			}
+		}
+	}
+	return cardUnion / ( unionC.size() * (unionC.size() - 1));
+}
+
+
+void transfer(uint tf, uint te, set<uint>& toFill, set<uint>& toEmpty, vector<Node>& vecNodes, vector<set<uint>>& clusters){
+	vector<uint> vec;
+	for (auto&& index : toEmpty){
+		vec = {};
+		for (auto && clust : vecNodes[index].cluster){
+			if (not (clust == te)){
+				vec.push_back(clust);
+			}
+		}
+		vec.push_back(tf);
+		vecNodes[index].cluster = removeDuplicates(vec);
+	}
+	
+	for (auto&& index : toFill){
+		vec = {};
+		for (auto && clust : vecNodes[index].cluster){
+			if (not (clust == te)){
+				vec.push_back(clust);
+			}
+		}
+		vecNodes[index].cluster = removeDuplicates(vec);
+	}
+}
+
+
+void merge(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes){
+	if (clust1.size() > clust2.size()){  // merge in clust1
+		clusters[i1].insert(clusters[i2].begin(), clusters[i2].end());
+		transfer(i1, i2, clust1, clust2, vecNodes, clusters);
+		clusters[i2] = {};
+	} else {  // merge in clust2
+		clusters[i2].insert(clusters[i1].begin(), clusters[i1].end());
+		transfer(i2, i1, clust2, clust1, vecNodes, clusters);
+		clusters[i1] = {};
+	}
+}
+
+
+
+vector<set<uint>> assignNewClusters(set<uint>& clust, vector<Node>& vecNodes, float cutoff){
+	bool above(false);
+	unordered_set<uint> visited;
+	set<uint> nodesInConnexComp;
+	vector<set<uint>> newClust;
+	for (auto&& node : clust){
+		if (not visited.count(node)){
+			above = false;
+			nodesInConnexComp = {};
+			DFS(node, vecNodes, visited, nodesInConnexComp, above, cutoff);
+			if (above){
+				newClust.push_back(nodesInConnexComp);
+			}
+		}
+	}
+	return newClust;
+}
+
+
+void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& interC){
+	set<uint> clust;
+	for (auto && elt : clusters[index]){
+		if (not interC.count(elt)){
+			clust.insert(elt);
+		}
+	}
+	clusters[index] = clust;
+}
+
+
+uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff){
 	uint cut1(0), cut2(0), cut(0);
 	for (auto&& node : interC){
-		for (auto&& neigh : nodeToNeighbors[node]){
-			if (pcliqueToNodes[indexC1].count(neigh)){
+		for (auto&& neigh : vecNodes[node].neighbors){
+			if (clust1.count(neigh)){
 				++cut1;
-			} else if (pcliqueToNodes[indexC2].count(neigh)){
+			}
+			if (clust2.count(neigh)){
 				++cut2;
 			}
 		}
 	}
-	if (cut1 <= cut2){  // transfer nodes in cluster 2
-		for (auto&& node : interC){
-			pcliqueToNodes[indexC1].erase(node);
-			if (nodeToCluster.count(node)){
-				nodeToCluster[node] = indexC2;
-			} else {
-				nodeToCluster.insert({node, indexC2});
-			}
-		}
-		// nodes from the cluster that transferred can be disjoint
-		unordered_map <uint, set<uint>> temporaryClusters;
-		unordered_map <uint,uint> temporaryNodesToClusters;
-		uint indexCluster(pcliqueToNodes.size());
-		for (auto&& node : pcliqueToNodes[indexC1]){
-			if (not temporaryNodesToClusters.count(node) or nodeToMetrics[node].second >= cutoff){
-				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC1], pCliquesAboveThresh,nodeToMetrics, cutoff);
-				++indexCluster;
-			}
-		}
-		if (temporaryClusters.size() > 1){  // several connected component in the remaining c1
-			modif = true;
-			pcliqueToNodes[indexC1] = {};
-			for (auto newClust(temporaryClusters.begin()); newClust != temporaryClusters.end(); ++newClust){
-				pcliqueToNodes.push_back(newClust->second);
-			}
-		} else {
-			pCliquesAboveThresh.erase(pcliqueToNodes.size());
-		}
-		cut += cut2;
-	} else {  // transfer nodes in cluster 1
-		for (auto&& node : interC){
-			pcliqueToNodes[indexC2].erase(node);
-			if (nodeToCluster.count(node)){
-				nodeToCluster[node] = indexC1;
-			} else {
-				nodeToCluster.insert({node, indexC1});
-			}
-		}
-
-		unordered_map <uint, set<uint>> temporaryClusters;
-		unordered_map <uint, uint> temporaryNodesToClusters;
-		uint indexCluster(pcliqueToNodes.size());
-		for (auto&& node : pcliqueToNodes[indexC2]){
-			if (not temporaryNodesToClusters.count(node) or nodeToMetrics[node].second >= cutoff){
-				assignClusterDFS(node, temporaryClusters, temporaryNodesToClusters, indexCluster, nodeToNeighbors, interC, pcliqueToNodes[indexC2], pCliquesAboveThresh, nodeToMetrics, cutoff);
-				++indexCluster;
-			}
-		}
-		if (temporaryClusters.size() > 1){  // several connected component in the remaining c2
-			modif = true;
-			pcliqueToNodes[indexC2] = {};
-			for (auto newClust(temporaryClusters.begin()); newClust != temporaryClusters.end(); ++newClust){
-				pcliqueToNodes.push_back(newClust->second);
+	if (clust1.size() == interC.size()){
+		transfer(i1, i2, clust1, interC, vecNodes, clusters);
+		removeSplittedElements(i2, clusters, interC);
+		cut = cut2;
+	} else if (clust2.size() == interC.size()){
+		transfer(i2, i1, clust2, interC, vecNodes, clusters);
+		removeSplittedElements(i1, clusters, interC);
+		cut = cut1;
+	} else {
+		unordered_set <uint> neighbors;
+		vector<set<uint>> newClust;
+		if (cut1 >= cut2){  // todo = treat equality case
+			transfer(i1, i2, clust1, interC, vecNodes, clusters);
+			removeSplittedElements(i2, clusters, interC);
+			cut = cut2;   // todo * 2 ?
+			newClust = assignNewClusters(clust2, vecNodes, cutoff);
+			if (newClust.size() > 1){
+				for (uint i(0); i < newClust.size(); ++i){
+					clusters.push_back(newClust[i]);
+					for (auto&& nodes: newClust[i]){
+						vecNodes[nodes].cluster.push_back(clusters.size() - 1);
+					}
+					transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters);
+				}
+				clusters[i2] = {};
 			}
 		} else {
-			pCliquesAboveThresh.erase(pcliqueToNodes.size());
+			// split clust1
+			transfer(i2, i1, clust2, interC, vecNodes, clusters);
+			removeSplittedElements(i1, clusters, interC);
+			cut = cut1;
+			newClust = assignNewClusters(clust1, vecNodes, cutoff);
+			
+			if (newClust.size() > 1){
+				for (uint i(0); i < newClust.size(); ++i){
+					clusters.push_back(newClust[i]);
+					for (auto&& nodes: newClust[i]){
+						vecNodes[nodes].cluster.push_back(clusters.size() - 1);
+					}
+					transfer(clusters.size() - 1, i1, newClust[i], clust1, vecNodes, clusters);
+				}
+				clusters[i1] = {};
+			}
 		}
-		cut += cut1;
 	}
 	return cut;
 }
 
 
-uint  computeClustersAndCut(vector<set<uint>>& pcliqueToNodes, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, float cutoff, unordered_set<uint>& nodeSingletons, unordered_set<uint>& pCliquesAboveThresh,  unordered_map <uint, pair<float, uint>>& nodeToMetrics){
-	float unionCC(0);
-	uint cut(0);
-	bool modif(false), modif1(true);
-	unordered_map <uint, uint> nodeToCluster;
-	cout << "Comparing " << pcliqueToNodes.size() << " clusters (cutoff " << cutoff<< ")" <<  endl;
-
-	for (uint clust1(0); clust1 < pcliqueToNodes.size(); ++clust1){
-		for (uint clust2(0); clust2 < pcliqueToNodes.size(); ++clust2){
-			if ((not pcliqueToNodes[clust1].empty()) and (not pcliqueToNodes[clust2].empty()) and pCliquesAboveThresh.count(clust1) and pCliquesAboveThresh.count(clust2) and clust1 != clust2){
-				set<uint> unionC;
-				set<uint> interC;
-				unionCC = 0;
-				set_intersection(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(interC, interC.begin()));
-				if (not interC.empty()){  // some nodes belong to both clusters
-					modif = true;
-					if (interC.size() ==pcliqueToNodes[clust1].size() and interC.size() == pcliqueToNodes[clust2].size()){
-						pcliqueToNodes[clust2] = {};
-					} else {
-						set_union(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(unionC, unionC.begin()));
-						float cardUnion(0);
-						for (auto&& node : unionC){
-							for (auto&& neigh : nodeToNeighbors[node]){
-								if (unionC.count(neigh)){
-									++cardUnion;
-								}
-							}
-						}
-						unionCC = cardUnion / (unionC.size() * (unionC.size() - 1));
-						if (unionCC >= 100 * cutoff/100){
-							mergeProcedure(pcliqueToNodes, clust1, clust2, nodeToCluster);
-							modif1 = true;
-						} else {
-							cutProcedure(interC, nodeToNeighbors,  pcliqueToNodes, clust1, clust2, nodeToCluster, pCliquesAboveThresh, nodeToMetrics, cutoff, modif1);
-						}
+uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters){
+	uint cut(0), cuthalf(0);
+	set<uint> clust1, clust2, unionC, interC;
+	uint i1, i2;
+	float unionCC;
+	for (uint n(0); n < vecNodes.size(); ++n){
+		vecNodes[n].cluster = removeDuplicates(vecNodes[n].cluster);
+		if (vecNodes[n].cluster.size() > 0){
+			for (auto&& c : vecNodes[n].cluster){
+				clusters[c].insert(n);  // node at index n is in cluster c
+			}
+		}
+	}
+	for (uint i(0); i < vecNodes.size(); ++i){
+		if (vecNodes[i].cluster.size() > 1){  // node is in several clusters
+			while (vecNodes[i].cluster.size() > 1){
+				i1 = vecNodes[i].cluster[0];
+				i2 = vecNodes[i].cluster[1];
+				clust1 = clusters[i1];
+				clust2 = clusters[i2];
+				interC = {};
+				set_intersection(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(interC, interC.begin()));
+				if (interC.size() == clust1.size() and clust1.size() == clust2.size()){  // clust1 and clust2 are the same
+					transfer(i1, i2, clust1, interC,  vecNodes, clusters);
+					clusters[i2] = {};
+				} else {
+					unionC = {};
+					set_union(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(unionC, unionC.begin()));
+					unionCC = computeUnionCC(unionC, vecNodes);
+					if (unionCC >= cutoff){  // merge
+						merge(i1, i2, clust1, clust2, clusters, vecNodes);
+					} else {  // split
+						cut += splitClust(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff);
 					}
 				}
-			} else if ((not pcliqueToNodes[clust2].empty()) and pCliquesAboveThresh.count(clust1) and clust1 != clust2){
-				set<uint> interC;
-				set_intersection(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(interC, interC.begin()));
-				if (not interC.empty()){
-					modif = true; 
-					mergeProcedure(pcliqueToNodes, clust1, clust2, nodeToCluster, true);
-					modif1 = true;
-				}
-				
-			} else if ((not pcliqueToNodes[clust1].empty()) and pCliquesAboveThresh.count(clust2) and clust1 != clust2){
-				set<uint> interC;
-				set_intersection(pcliqueToNodes[clust1].begin(), pcliqueToNodes[clust1].end(), pcliqueToNodes[clust2].begin(), pcliqueToNodes[clust2].end(), inserter(interC, interC.begin()));
-				if (not interC.empty()){
-					modif = true;
-					mergeProcedure(pcliqueToNodes, clust2, clust1, nodeToCluster, true);
-					modif1 = true;
-				}
 			}
+			
 		}
 	}
 
 	cut = 0;
-	for (uint clust1(0); clust1 < pcliqueToNodes.size(); ++clust1){
-		for (auto && node : pcliqueToNodes[clust1]){
-			for (auto&& n : nodeToNeighbors[node]){
-				if (not (pcliqueToNodes[clust1].count(n))){
-					++cut;
+
+	uint halfcut(0);
+	for (uint clust1(0); clust1 < clusters.size(); ++clust1){
+		if (not clusters[clust1].empty()){
+			for (auto && i : clusters[clust1]){
+				for (auto&& n : vecNodes[i].neighbors){
+					if (not (clusters[clust1].count(n))){
+						if (vecNodes[n].cluster.empty()){
+							++cut;
+						} else {
+							++halfcut;
+						}
+					}
 				}
 			}
 		}
 	}
-	return cut/2;
+	
+	return cut + halfcut/2;
+}
+
+void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp){
+	uint ii(0);
+	unordered_map<uint, uint> indexReads;
+	for (auto&& val: nodesInConnexComp){
+		vecNodes.push_back(vecNodesGlobal[val]);
+		indexReads.insert({val, ii});
+		++ii;
+	}
+	vector<uint> vec;
+	for (uint i(0); i < vecNodes.size(); ++i){
+		vec = {};
+		for (auto&& n : vecNodes[i].neighbors){
+			vec.push_back(indexReads[n]);
+		}
+		vecNodes[i].neighbors = vec;
+	}
 }
 
 
@@ -370,144 +473,129 @@ int main(int argc, char** argv){
 		
 		string fileName(argv[1]);
         ifstream refFile(fileName);
-        unordered_map <uint, unordered_set<uint>> nodeToNeighborsGlobal;
-        // parse SRC's output, for each line we get a node and its neighbors and fill the map nodeToNeighbors
-        cout << "Parsing..." << endl;
-		parsingSRC(refFile, nodeToNeighborsGlobal);
 
-		uint nbConnexComp(0);
+
+	
+	//~ string fileName(argv[1]);
+	//~ string outFileName("final_g_clusters.txt");
+		//~ ifstream refFile(fileName);
+		vector<Node> vecNodesGlobal;
+		cout << "Parsing..." << endl;
+		parsingSRC(refFile, vecNodesGlobal);
+
+		//~ uint nbConnexComp(0);
 		unordered_set<uint> visited;
-		vector<unordered_set<uint>> nodesInConnexComp;
-		for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
-			if (not (visited.count(node->first))){
-				unordered_set<uint> s;
+		vector<set<uint>> nodesInConnexComp;
+		bool b(false);
+		for (uint n(0); n < vecNodesGlobal.size(); ++n){
+			if (not (visited.count(n))){
+				set<uint> s;
+				DFS(n, vecNodesGlobal, visited, s, b, 0);
 				nodesInConnexComp.push_back(s);
-				DFS(node->first, nodeToNeighborsGlobal, visited, nodesInConnexComp.back());
-				++ nbConnexComp;
+				//~ ++ nbConnexComp;
 			}
 		}
-		cout << "Connected components: " << nbConnexComp << endl;
+		cout << "Connected components: " << nodesInConnexComp.size() << endl;
 
 		ofstream out(outFileName);
 		mutex mm;
-		uint c(0);
-		//~ #pragma omp parallel for
-		for (c=0; c < nodesInConnexComp.size(); ++c){
-			unordered_map <uint, unordered_set<uint>> nodeToNeighbors;
-			for (auto node(nodeToNeighborsGlobal.begin()); node != nodeToNeighborsGlobal.end(); ++node){
-				if (nodesInConnexComp[c].count(node->first)){
-					nodeToNeighbors.insert({node->first, node->second});
-				}
-			}
-			unordered_map <uint, pair<float, uint>> nodeToMetrics;
-			map <uint, vector<uint>, std::greater<uint>> degToNode;
-			set <float, std::greater<float>> CC;
-			// get CC and degree for each node
-			cout << "Computing graph..." << endl;
-			computeCCandDeg(nodeToNeighbors, nodeToMetrics, degToNode, CC);
-			ofstream outm("nodes_metrics.txt");
-			//~ mm.lock();
-			for (auto node(nodeToMetrics.begin()); node != nodeToMetrics.end(); ++node){
-				outm << node->first << " " << node->second.first << " " << node->second.second << endl; 
-			}
-			//~ mm.unlock();
-			//~ vector< set<uint>> pcliqueToNodes;
-			//~ unordered_map <uint, unordered_set<uint>> nodeToPCliques;
-			//~ uint nbPCliques(0), cut(0);
-			
-			// compute min cut for each clustering coef value
-			//~ unordered_set<uint> nodeSingletons;
-			//~ unordered_set<uint> pCliquesAboveThresh;
-			cout << "Testing cutoff values..." << endl;
+
+		vector<vector<uint>> finalClusters;
+		for (uint c(0); c < nodesInConnexComp.size(); ++c){
+			mm.lock();
+			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
+			mm.unlock();
+			vector<Node> vecNodes;
+			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
+			vector<float> ClCo;
+			computeCCandDeg(vecNodes, ClCo);
 			vector<float>vecCC;
 			if (approx){
-				cout << "approx" << endl;
 				float prev(1.1), cutoffTrunc;
 				uint value;
-				if (CC.size() > 10000){
+				if (ClCo.size() > 10000){
 					value = 1000;
-				} else {
+				} else if (ClCo.size() > 1000){
 					value = 100;
+				} else {
+					value = 0;
 				}
-				for (auto&& cutoff: CC){
-					cutoffTrunc = trunc(cutoff * value)/value;
+				for (auto&& cutoff: ClCo){
+					if (value != 0){
+						cutoffTrunc = trunc(cutoff * value)/value;
+					} else {
+						cutoffTrunc = cutoff;
+					}
 					if (cutoffTrunc < prev){
 						prev = cutoffTrunc;
 						vecCC.push_back(cutoffTrunc);
 					}
 				}
 			} else {
-				for (auto&& cutoff: CC){
+				for (auto&& cutoff: ClCo){
 					vecCC.push_back(cutoff);
 				}
 			}
-			vector<uint> globalCut(vecCC.size());
-			uint cuto(0);
-			//~ for (auto&& cutoff: CC){
-			cout << vecCC.size() << " coefficients to test" << endl;
-
-			
+			uint minCut(0);
+			vector<set<uint>> clustersToKeep;
+			uint ccc(0);
 			#pragma omp parallel for
-			for (cuto = 0; cuto < vecCC.size(); ++cuto){
-				float cutoff(vecCC[cuto]); 
-				uint nbPCliques(0), cut(0);
-				vector< set<uint>> pcliqueToNodes;
-				unordered_map <uint, unordered_set<uint>> nodeToPCliques;
-				unordered_set<uint> nodeSingletons;
-				unordered_set<uint> pCliquesAboveThresh;
-				computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
+			for (ccc = 0; ccc < vecCC.size(); ++ccc){
+			//~ for (ccc = 0; ccc < ClCo.size(); ++ccc){
 				
-				cut = computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
+				uint cut;
+				float precCutoff = -1;
+				//~ float cutoff( ClCo[ccc]);
+				float cutoff( vecCC[ccc]);
+				if (ccc != 0){
+					precCutoff = vecCC[ccc - 1];
+				}
 				mm.lock();
-				globalCut[cuto] = cut;
+				computePseudoCliques(cutoff, precCutoff, vecNodes);
 				mm.unlock();
-			}
-			uint i(0), minCut(0), val(0);
-			// get the min cut over all cc values
-			for (auto&& cut : globalCut){
-				if (i == 0){  // if the graph is composed only of clique the mincut will be zeros since the first cc 
+				vector<Node> vecNodesCpy = vecNodes;
+				vector<set<uint>> clusters(vecNodesCpy.size());
+				cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters);
+				mm.lock();
+				cout << "cutoff " << cutoff << " cut " << cut << endl;
+				mm.unlock();
+				if (ccc == 0){
+					mm.lock();
 					minCut = cut;
-					val = i;
+					clustersToKeep = clusters;
+					mm.unlock();
 				} else {
 					if (cut < minCut and cut > 0){
-						val = i;
+						mm.lock();
 						minCut = cut;
+						clustersToKeep = clusters;
+						mm.unlock();
 					}
 				}
-				++i;
+				mm.lock();
+				vecNodes = vecNodesCpy;
+				mm.unlock();
 			}
 			
-			uint index(0);
-
-			vector< set<uint>> pcliqueToNodes;
-			unordered_map <uint, unordered_set<uint>> nodeToPCliques;
-			uint nbPCliques(0), cut(0);
-			unordered_set<uint> nodeSingletons;
-			unordered_set<uint> pCliquesAboveThresh;
-			for (auto&& cutoff: CC){
-				if (index == val){
-					cout <<"computing final cluster with cutoff:" <<  cutoff << " and min cut:" << minCut << endl;
-					pcliqueToNodes = {};
-					nodeToPCliques = {};
-					nbPCliques = 0;
-					nodeSingletons = {};
-					pCliquesAboveThresh = {};
-					computePseudoCliques(cutoff, degToNode, pcliqueToNodes, nodeToPCliques, nodeToMetrics, nbPCliques, nodeToNeighbors, pCliquesAboveThresh);
-					computeClustersAndCut(pcliqueToNodes, nodeToNeighbors, cutoff, nodeSingletons, pCliquesAboveThresh, nodeToMetrics);
-					break;
-				}
-				++index;
-			}
-			for (uint p(0); p < pcliqueToNodes.size(); ++p){
-				if (not pcliqueToNodes[p].empty()){
-					mm.lock();
-					for (auto&& node : pcliqueToNodes[p]){
-						out << node << " " ;
+			vector <uint> v;
+			for (uint i(0); i < clustersToKeep.size(); ++i){
+				v = {};
+				if (not clustersToKeep[i].empty()){
+					for (auto&& n : clustersToKeep[i]){
+						v.push_back(vecNodes[n].index);
 					}
-					out << endl;
+					mm.lock();
+					finalClusters.push_back(v);
 					mm.unlock();
 				}
 			}
+		}
+		cout << "Writing clusters in output" << endl;
+		for (uint i(0); i < finalClusters.size(); ++i){
+			for (auto&& n : finalClusters[i]){
+				out << n << " ";
+			}
+			out << endl;
 		}
 	} else {
 		cout << "Usage : ./clustering_cliqueness (src_output) (--approx)" << endl;
