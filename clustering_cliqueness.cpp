@@ -76,6 +76,42 @@ vector<float> removeDuplicatesCC(vector<float>& vec){
 //~ }
 
 
+bool findBridge(vector<Node>& vecNodes, set<uint>& cluster, set<uint>& toRemove){
+	bool bridge(false);
+	uint neigh;
+	set<uint> inter, interC, neigh2;
+	for (auto&& nodes : toRemove){
+		//~ for (auto&& neigh : vecNodes[nodes].neighbors){
+		for (uint ne(0); ne < vecNodes[nodes].neighbors.size(); ++ne){
+			
+			neigh = vecNodes[nodes].neighbors[ne];
+			neigh2 = {};
+			for (auto && ne2 : vecNodes[neigh].neighbors){
+				if (not toRemove.count(ne2)){
+					neigh2.insert(ne2);
+				}
+			}
+			if (ne == 0){
+				interC = neigh2;
+			} else {
+				neigh2.insert(neigh);
+				inter = interC;
+				interC = {};
+				set_intersection(neigh2.begin(), neigh2.end(), inter.begin(), inter.end(), inserter(interC, interC.begin()));
+			}
+			if (interC.size() <= 1){
+				bridge = true;
+				break;
+			}
+		}
+		if (interC.size() <= 1){
+			bridge = true;
+			break;
+		}
+	}
+	return bridge;
+}
+
 void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
 	//~ unordered_set<uint> neighbors;
 	if (not visited.count(n)){
@@ -369,33 +405,44 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 			transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i2, clusters, interC);
 			cut = cut2;   // todo * 2 ?
-			newClust = assignNewClusters(clust2, vecNodes, cutoff);
-			if (newClust.size() > 1){
-				for (uint i(0); i < newClust.size(); ++i){
-					clusters.push_back(newClust[i]);
-					for (auto&& nodes: newClust[i]){
-						vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
+			bool more(findBridge(vecNodes, clust2, interC));
+			if (more){
+				//~ cout << "more" << endl;			
+				newClust = assignNewClusters(clust2, vecNodes, cutoff);
+				if (newClust.size() > 1){
+					for (uint i(0); i < newClust.size(); ++i){
+						clusters.push_back(newClust[i]);
+						for (auto&& nodes: newClust[i]){
+							vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
+						}
+						transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
 					}
-					transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
+					clusters[i2] = {};
+				} else {
+					//~ cout << "no more" << endl;	
 				}
-				clusters[i2] = {};
 			}
 		} else {
 			// split clust1
 			transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i1, clusters, interC);
 			cut = cut1;
-			newClust = assignNewClusters(clust1, vecNodes, cutoff);
-			
-			if (newClust.size() > 1){
-				for (uint i(0); i < newClust.size(); ++i){
-					clusters.push_back(newClust[i]);
-					for (auto&& nodes: newClust[i]){
-						vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
+			bool more(findBridge(vecNodes, clust2, interC));
+			if (more){
+				//~ cout << "more" << endl;	
+				newClust = assignNewClusters(clust1, vecNodes, cutoff);
+				if (newClust.size() > 1){
+					for (uint i(0); i < newClust.size(); ++i){
+						clusters.push_back(newClust[i]);
+						for (auto&& nodes: newClust[i]){
+							vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
+						}
+						transfer(clusters.size() - 1, i1, newClust[i], clust1, vecNodes, clusters, ind);
 					}
-					transfer(clusters.size() - 1, i1, newClust[i], clust1, vecNodes, clusters, ind);
+					clusters[i1] = {};
 				}
-				clusters[i1] = {};
+			} else {
+				//~ cout << "no more" << endl;	
 			}
 		}
 	}
@@ -409,29 +456,15 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 	uint i1, i2;
 	float unionCC;
 	for (uint n(0); n < vecNodes.size(); ++n){
-		//~ vecNodes[n].cluster[ind] = removeDuplicates(vecNodes[n].cluster[ind]);
 		if (vecNodes[n].cluster[ind].size() > 0){
 			for (auto&& c : vecNodes[n].cluster[ind]){
 				clusters[c].insert(n);  // node at index n is in cluster c
 			}
 		}
 	}
-	//~ cout << "clusters  at ind" << ind << ":" << endl;
-	//~ for (uint i(0); i < clusters.size(); ++i){
-		//~ if (not clusters[i].empty()){
-			//~ for (auto&& c: clusters[i]){
-				//~ cout << vecNodes[c].index << " ";
-			//~ }
-			//~ cout << endl;
-		//~ }
-		
-	//~ }
-	//~ cin.get();
 	for (uint i(0); i < vecNodes.size(); ++i){
 		if (vecNodes[i].cluster[ind].size() > 1){  // node is in several clusters
 			while (vecNodes[i].cluster[ind].size() > 1){
-				//~ cout << "node " << vecNodes[i].index << " in " << vecNodes[i].cluster[ind].size() << " clust at ind " << ind << endl;
-				
 				i1 = vecNodes[i].cluster[ind][0];
 				i2 = vecNodes[i].cluster[ind][1];
 				clust1 = clusters[i1];
@@ -440,22 +473,17 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 				set_intersection(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(interC, interC.begin()));
 				if (interC.size() == clust1.size() and clust1.size() == clust2.size()){  // clust1 and clust2 are the same
 					transfer(i1, i2, clust1, interC,  vecNodes, clusters, ind);
-					//~ cout << "transfer" << endl;
 					clusters[i2] = {};
-					//~ cout << "node " << vecNodes[i].index << " in " << vecNodes[i].cluster[ind].size() << " clust at ind " << ind << endl;
 				} else {
 					unionC = {};
 					set_union(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(unionC, unionC.begin()));
 					unionCC = computeUnionCC(unionC, vecNodes);
 					if (unionCC >= cutoff){  // merge
-						//~ cout << "merge" << endl;
 						merge(i1, i2, clust1, clust2, clusters, vecNodes, ind);
 					} else {  // split
-						//~ cout << "split" << endl;
 						cut += splitClust(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind);
 					}
 				}
-				//~ cin.get();
 			}
 		}
 	}
@@ -472,36 +500,14 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 					if (not (clusters[clust1].count(n))){
 						if (vecNodes[n].cluster[ind].empty()){
 							++cut;
-							//~ cout << "appen" << endl;
 						} else {
 							++halfcut;
-							//~ cout << "happen" << endl;
 						}
 					}
 				}
 			}
 		}
 	}
-	
-	//~ for (uint i(0); i < clusters.size(); ++i){
-		//~ if (not clusters[i].empty()){
-			//~ for (auto&& node: clusters[i]){
-				
-			//~ }
-		//~ }
-		
-	//~ }
-	//~ cout << "clusters  at end of ind" << ind << ":" << endl;
-	//~ for (uint i(0); i < clusters.size(); ++i){
-		//~ if (not clusters[i].empty()){
-			//~ for (auto&& c: clusters[i]){
-				//~ cout << vecNodes[c].index << " ";
-			//~ }
-			//~ cout << endl;
-		//~ }
-		
-	//~ }
-	//~ cin.get();
 	return cut + halfcut/2;
 }
 
@@ -524,14 +530,43 @@ void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>
 }
 
 
+
+void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
+	vector<uint> vec;
+	//~ unordered_set<uint> passed;
+	for (uint i(0); i < vecNodes.size(); ++i){
+		if (vecNodes[i].neighbors.size() < val){
+		//~ if ((not passed.count(i)) and vecNodes[i].neighbors.size() < 20){
+			set<uint> node({i});
+			set<uint> neighbors(vecNodes[i].neighbors.begin(), vecNodes[i].neighbors.end());
+			bool cut(findBridge(vecNodes, neighbors, node));
+			if (cut){
+				//~ passed.insert(i);
+				vecNodes[i].neighbors = {};
+				vec = {};
+				for (auto && neigh : neighbors){
+					//~ passed.insert(neigh);
+					for (auto&& neigh2 : vecNodes[neigh].neighbors){
+						if (neigh2 != i){
+							vec.push_back(neigh2);
+						}
+					}
+					vecNodes[neigh].neighbors = vec;
+				}
+			}
+		}
+	}
+}
+
+
 int main(int argc, char** argv){
 
 	if (argc > 1){
-		bool approx(false);
+		bool approx(false), preprocessing(false);
 		string outFileName("final_g_clusters.txt"), fileName("");
 		uint nbThreads(2);
 		int c;
-		while ((c = getopt (argc, argv, "f:o:c:i")) != -1){
+		while ((c = getopt (argc, argv, "f:o:c:ip")) != -1){
 			switch(c){
 				case 'o':
 					outFileName=optarg;
@@ -545,6 +580,9 @@ int main(int argc, char** argv){
 				case 'i':
 					approx = true;
 					break;
+				case 'p':
+					preprocessing = true;
+					break;
 			}
 		}
 		
@@ -553,6 +591,9 @@ int main(int argc, char** argv){
 		vector<Node> vecNodesGlobal;
 		cout << "Parsing..." << endl;
 		parsingSRC(refFile, vecNodesGlobal);
+		if (preprocessing){
+			cutBrigdesInConnectedComp(vecNodesGlobal, 10);
+		}
 		unordered_set<uint> visited;
 		vector<set<uint>> nodesInConnexComp;
 		bool b(false);
@@ -569,10 +610,14 @@ int main(int argc, char** argv){
 		mutex mm;
 
 		vector<vector<uint>> finalClusters;
+		
 		for (uint c(0); c < nodesInConnexComp.size(); ++c){
-			mm.lock();
+			//~ mm.lock();
 			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-			mm.unlock();
+			//~ mm.unlock();
+			//~ if (preprocessing){
+				//~ cutBrigdesInConnectedComp(vecNodesGlobal, 10);
+			//~ }
 			vector<Node> vecNodes;
 			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
 			vector<float> ClCo;
@@ -581,10 +626,17 @@ int main(int argc, char** argv){
 			if (approx){
 				float prev(1.1), cutoffTrunc;
 				uint value;
-				if (ClCo.size() > 10000){
-					value = 1000;
-				} else if (ClCo.size() > 1000){
-					value = 100;
+				//~ if (ClCo.size() > 10000){
+					//~ value = 10;
+					//value = 1000;
+				//~ } else if (ClCo.size() > 1000){
+					//~ value = 10;
+					//value = 100;
+				//~ } else {
+					//~ value = 0;
+				//~ }
+				if (ClCo.size() > 100){
+					value = 10;
 				} else {
 					value = 0;
 				}
@@ -610,33 +662,42 @@ int main(int argc, char** argv){
 			sortVecNodes(vecNodes);  // sort by decreasing degree
 			cout << "Computing pseudo cliques" << endl;
 			computePseudoCliques(vecCC, vecNodes, nbThreads);
+			uint round(0);
+			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
+			bool compute(true);
 			#pragma omp parallel num_threads(nbThreads)
 			{
 				#pragma omp for
 				for (ccc = 0; ccc < vecCC.size(); ++ccc){
-					uint cut;
-					float precCutoff = -1;
-					float cutoff(vecCC[ccc]);
-					if (ccc != 0){
-						precCutoff = vecCC[ccc - 1];
-					}
-					vector<Node> vecNodesCpy = vecNodes;
-					vector<set<uint>> clusters(vecNodesCpy.size());
-					cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
-					mm.lock();
-					cout << "cutoff " << cutoff << " cut " << cut << endl;
-					mm.unlock();
-					if (ccc == 0){
+					if (compute){
+						uint cut;
+						float precCutoff = -1;
+						float cutoff(vecCC[ccc]);
+						if (ccc != 0){
+							precCutoff = vecCC[ccc - 1];
+						}
+						vector<Node> vecNodesCpy = vecNodes;
+						vector<set<uint>> clusters(vecNodesCpy.size());
+						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
 						mm.lock();
-						minCut = cut;
-						clustersToKeep = clusters;
+						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
+						++round;
 						mm.unlock();
-					} else {
-						if (cut < minCut and cut > 0){
+						if (ccc == 0){
 							mm.lock();
 							minCut = cut;
 							clustersToKeep = clusters;
+							if (minCut == 0 and cutoff == 1){
+								compute = false;
+							}
 							mm.unlock();
+						} else {
+							if (cut < minCut and cut > 0){
+								mm.lock();
+								minCut = cut;
+								clustersToKeep = clusters;
+								mm.unlock();
+							}
 						}
 					}
 				}
