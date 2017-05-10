@@ -62,17 +62,33 @@ vector<float> removeDuplicatesCC(vector<float>& vec){
 	return vec;
 }
 
+
+//~ void finConnectedComponent(uint n, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& visited, unordered_set<uint>& nodesInConnexComp){
+	//~ unordered_set<uint> neighbours;
+	//~ if (not visited.count(n)){
+		//~ visited.insert(n);
+		//~ nodesInConnexComp.insert(n);
+		//~ neighbours = nodeToNeighbors[n];
+		//~ for (auto&& neigh : neighbours){
+			//~ DFS(neigh, nodeToNeighbors, visited, nodesInConnexComp);
+		//~ }
+	//~ }
+//~ }
+
+
 void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
-	unordered_set<uint> neighbors;
+	//~ unordered_set<uint> neighbors;
 	if (not visited.count(n)){
 		if (vecNodes[n].CC >= cutoff){
 			above = true;
 		}
 		visited.insert(n);
 		nodesInConnexComp.insert(n);
-		neighbors = {};
-		copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
-		for (auto&& neigh : neighbors){
+		//~ unordered_set<uint> neighbors(v.begin(), v.end());
+		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+		for (auto&& neigh : vecNodes[n].neighbors){
+		//~ for (auto&& neigh : neighbors){
 			DFS(neigh, vecNodes, visited, nodesInConnexComp, above, cutoff);
 		}
 	}
@@ -151,7 +167,13 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 		if (vecNodes[n].degree > 1){
 			pairs = 0;
 			neighbors = {};
-			copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+			//~ for (uint i(0); i < vecNodes[n].neighbors.size(); ++i){
+				//~ neighbors.insert(vecNodes[n].neighbors[i]);
+			//~ }
+			//~ if (not vecNodes[n].neighbors.empty()){
+				copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+			//~ }
+			//~ cout << "*" <<  vecNodes[n].neighbors.size() << " " << neighbors.size() << endl;
 			for (auto&& neigh : neighbors){  // for each neighbor of the node
 				for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
 					if (neighbors.count(neigh2)){  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
@@ -164,13 +186,10 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 				clusteringCoef = pairs/totalPairs;
 				vecNodes[n].CC = clusteringCoef;
 				ClCo.push_back(clusteringCoef);
-				//~ ClCo.insert(clusteringCoef);
 			} else {
-				//~ ClCo.insert(0);
 				ClCo.push_back(0);
 			}
 		} else {
-			//~ ClCo.insert(0);
 			ClCo.push_back(0);
 		}
 	}
@@ -206,19 +225,18 @@ void sortVecNodes(vector<Node>& vecNodes){
 
 void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads){
 	vector<uint> v;
-	float cutoff;
+	//~ float cutoff;
 	vector<vector<uint>> vec(cutoffs.size());
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
 	}
 	uint c(0), nv(0);
-	unordered_set<uint> done;
 	
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){
-			cutoff = cutoffs[c];
+			float cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
 				if (vecNodes[i].CC >= cutoff){
 							vecNodes[i].cluster[c].push_back(i);
@@ -241,10 +259,10 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 
 float computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
 	float cardUnion(0);
-	unordered_set<uint> neighbors;
+	//~ unordered_set<uint> neighbors;
 	for (auto&& n : unionC){
-		neighbors = {};
-		copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+		//~ neighbors = {};
+		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
 		for (auto&& neigh : vecNodes[n].neighbors){
 			if (unionC.count(neigh)){
 				++cardUnion;
