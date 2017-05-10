@@ -210,32 +210,32 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes){
 	vector<vector<uint>> vec(cutoffs.size());
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
-		//~ vecNodes[i].neighbors = removeDuplicates(vecNodes[i].neighbors);
 	}
+	uint c(0), nv(0);
 	unordered_set<uint> done;
-	for (uint c(0); c < cutoffs.size(); ++c){
-		cutoff = cutoffs[c];
-		for (uint i(0); i < vecNodes.size(); ++i){
-			if (vecNodes[i].CC >= cutoff and (not done.count(i))){
-				done.insert(i);
-				//~ cout << "node " <<vecNodes[i].index << " above " << cutoff << " makes a cluster" << endl;
-				for (uint ind(c); ind < cutoffs.size(); ++ind){
-						//~ cout << "at ind " << ind << endl;
-						vecNodes[i].cluster[ind].push_back(i);
-						for (auto&& neigh : vecNodes[i].neighbors){
-							//~ cout << "with node " << vecNodes[neigh].index << endl;
-							vecNodes[neigh].cluster[ind].push_back(i);
-						}
+	
+	#pragma omp parallel num_threads(20)
+	{
+		#pragma omp for
+		for (c = 0; c < cutoffs.size(); ++c){
+			cutoff = cutoffs[c];
+			for (uint i(0); i < vecNodes.size(); ++i){
+				if (vecNodes[i].CC >= cutoff){
+							vecNodes[i].cluster[c].push_back(i);
+							for (auto&& neigh : vecNodes[i].neighbors){
+								vecNodes[neigh].cluster[c].push_back(i);
+							}
 				}
 			}
 		}
-	}
-	for (uint i(0); i < vecNodes.size(); ++i){
-		for (uint ii(0); ii < vecNodes[i].cluster.size(); ++ii){
-			vecNodes[i].cluster[ii] = removeDuplicates(vecNodes[i].cluster[ii]);
+		
+		#pragma omp for
+		for (nv = 0; nv < vecNodes.size(); ++nv){
+			for (uint ii(0); ii < vecNodes[nv].cluster.size(); ++ii){
+				vecNodes[nv].cluster[ii] = removeDuplicates(vecNodes[nv].cluster[ii]);
+			}
 		}
 	}
-	//~ cin.get();
 }
 
 
@@ -586,31 +586,34 @@ int main(int argc, char** argv){
 			sortVecNodes(vecNodes);  // sort by decreasing degree
 			cout << "Computing pseudo cliques" << endl;
 			computePseudoCliques(vecCC, vecNodes);
-			//~ #pragma omp parallel for
-			for (ccc = 0; ccc < vecCC.size(); ++ccc){
-				uint cut;
-				float precCutoff = -1;
-				float cutoff(vecCC[ccc]);
-				if (ccc != 0){
-					precCutoff = vecCC[ccc - 1];
-				}
-				vector<Node> vecNodesCpy = vecNodes;
-				vector<set<uint>> clusters(vecNodesCpy.size());
-				cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
-				mm.lock();
-				cout << "cutoff " << cutoff << " cut " << cut << endl;
-				mm.unlock();
-				if (ccc == 0){
+			#pragma omp parallel num_threads(20)
+			{
+				#pragma omp for
+				for (ccc = 0; ccc < vecCC.size(); ++ccc){
+					uint cut;
+					float precCutoff = -1;
+					float cutoff(vecCC[ccc]);
+					if (ccc != 0){
+						precCutoff = vecCC[ccc - 1];
+					}
+					vector<Node> vecNodesCpy = vecNodes;
+					vector<set<uint>> clusters(vecNodesCpy.size());
+					cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
 					mm.lock();
-					minCut = cut;
-					clustersToKeep = clusters;
+					cout << "cutoff " << cutoff << " cut " << cut << endl;
 					mm.unlock();
-				} else {
-					if (cut < minCut and cut > 0){
+					if (ccc == 0){
 						mm.lock();
 						minCut = cut;
 						clustersToKeep = clusters;
 						mm.unlock();
+					} else {
+						if (cut < minCut and cut > 0){
+							mm.lock();
+							minCut = cut;
+							clustersToKeep = clusters;
+							mm.unlock();
+						}
 					}
 				}
 			}
