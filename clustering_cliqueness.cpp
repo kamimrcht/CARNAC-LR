@@ -204,7 +204,7 @@ void sortVecNodes(vector<Node>& vecNodes){
 }
 
 
-void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes){
+void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads){
 	vector<uint> v;
 	float cutoff;
 	vector<vector<uint>> vec(cutoffs.size());
@@ -214,7 +214,7 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes){
 	uint c(0), nv(0);
 	unordered_set<uint> done;
 	
-	#pragma omp parallel num_threads(20)
+	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){
@@ -510,21 +510,27 @@ int main(int argc, char** argv){
 
 	if (argc > 1){
 		bool approx(false);
-		string outFileName("final_g_clusters.txt");
-		if (argc > 2){
-			if ((string)argv[2] == "--approx"){
-				approx = true;
-			} else {
-				outFileName = argv[2];
-			}
-			if (argc > 3){
-				if ((string)argv[3] == "--approx"){
+		string outFileName("final_g_clusters.txt"), fileName("");
+		uint nbThreads(2);
+		int c;
+		while ((c = getopt (argc, argv, "f:o:c:i")) != -1){
+			switch(c){
+				case 'o':
+					outFileName=optarg;
+					break;
+				case 'f':
+					fileName=optarg;
+					break;
+				case 'c':
+					nbThreads=stoi(optarg);
+					break;
+				case 'i':
 					approx = true;
-				}
+					break;
 			}
 		}
 		
-		string fileName(argv[1]);
+		//~ string fileName(argv[1]);
         ifstream refFile(fileName);
 		vector<Node> vecNodesGlobal;
 		cout << "Parsing..." << endl;
@@ -585,8 +591,8 @@ int main(int argc, char** argv){
 			uint ccc(0);
 			sortVecNodes(vecNodes);  // sort by decreasing degree
 			cout << "Computing pseudo cliques" << endl;
-			computePseudoCliques(vecCC, vecNodes);
-			#pragma omp parallel num_threads(20)
+			computePseudoCliques(vecCC, vecNodes, nbThreads);
+			#pragma omp parallel num_threads(nbThreads)
 			{
 				#pragma omp for
 				for (ccc = 0; ccc < vecCC.size(); ++ccc){
