@@ -12,7 +12,7 @@ if (len(sys.argv) > 2):
 	readToRecruited = dict()
 	with open(sys.argv[1]) as infile:  # reads fasta file
 		for rline in infile:
-			if '@' in rline:
+			if '@' in rline or '>' in rline:
 				line = rline.rstrip().split("t")
 				read = line[0][1:-1]
 				#~ print(read)
@@ -34,6 +34,7 @@ if (len(sys.argv) > 2):
 					readToRecruited.setdefault(index, set())
 					readToRecruited[index].add(indexRecruited)
 	out = open("minimap_src_format.txt", 'w')
+	out.write("#\n#\n#\n")
 	for read, recruited in readToRecruited.items():
 		toWrite = str(read) + ":"
 		for r in recruited:
