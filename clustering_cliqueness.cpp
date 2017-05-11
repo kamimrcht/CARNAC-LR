@@ -610,7 +610,7 @@ int main(int argc, char** argv){
 		mutex mm;
 
 		vector<vector<uint>> finalClusters;
-		
+		ofstream outm("nodes_metrics.txt"); 
 		for (uint c(0); c < nodesInConnexComp.size(); ++c){
 			//~ mm.lock();
 			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
@@ -622,6 +622,9 @@ int main(int argc, char** argv){
 			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
 			vector<float> ClCo;
 			computeCCandDeg(vecNodes, ClCo);
+			for (auto&& node : vecNodes){
+				outm << node.index << " " << node.CC << " " << node.degree << endl;
+			}
 			vector<float>vecCC;
 			if (approx){
 				float prev(1.1), cutoffTrunc;
