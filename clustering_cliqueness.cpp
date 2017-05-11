@@ -724,7 +724,8 @@ int main(int argc, char** argv){
 			out << endl;
 		}
 	} else {
-		cout << "Usage : ./clustering_cliqueness (src_output) (--approx)" << endl;
+		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -i -c nb_cores)" << endl;
+		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research" << endl << "-c gets the number of threads (default 2)" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;
 	}
 }
