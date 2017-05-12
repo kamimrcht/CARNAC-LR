@@ -189,7 +189,42 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
 }
 
 
-//~ void computeCCandDeg(vector<Node>& vecNodes, set<float, std::greater<float>>& ClCo){
+float getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
+	float pairs(0), clusteringCoef(0);
+	uint totalPairs;
+	for (auto&& neigh : neighbors){  // for each neighbor of the node
+		for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
+			if (neighbors.count(neigh2)){  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
+				++pairs;
+			}
+		}
+	}
+	//~ totalPairs = vecNodes[n].neighbors.size() * (vecNodes[n].neighbors.size() - 1);
+	totalPairs = neighbors.size() * (neighbors.size() - 1);
+	if (totalPairs > 0){
+		clusteringCoef = pairs/totalPairs;
+	}
+	return clusteringCoef;
+}
+
+
+int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, float cutoff){
+	int deltaCC(0);
+	unordered_set<uint> clust1Without;
+	for (auto&& i : clust1){
+		if (not toRemove.count(i)){
+			clust1Without.insert(i);
+		}
+	}
+	float CC1(getCC(clust1Without, vecNodes));
+	deltaCC = cutoff - CC1;
+	if (deltaCC < 0){
+		deltaCC *= -1;
+	}
+	return deltaCC;
+}
+
+
 void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 	float pairs, clusteringCoef;
 	uint totalPairs;
@@ -203,27 +238,11 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 		if (vecNodes[n].degree > 1){
 			pairs = 0;
 			neighbors = {};
-			//~ for (uint i(0); i < vecNodes[n].neighbors.size(); ++i){
-				//~ neighbors.insert(vecNodes[n].neighbors[i]);
-			//~ }
-			//~ if (not vecNodes[n].neighbors.empty()){
-				copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
-			//~ }
-			//~ cout << "*" <<  vecNodes[n].neighbors.size() << " " << neighbors.size() << endl;
-			for (auto&& neigh : neighbors){  // for each neighbor of the node
-				for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
-					if (neighbors.count(neigh2)){  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
-						++pairs;
-					}
-				}
-			}
-			totalPairs = vecNodes[n].neighbors.size() * (vecNodes[n].neighbors.size() - 1);
-			if (totalPairs > 0){
-				clusteringCoef = pairs/totalPairs;
-				vecNodes[n].CC = clusteringCoef;
+			copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
+			clusteringCoef = getCC(neighbors, vecNodes);
+			if (clusteringCoef != 0){
+				 vecNodes[n].CC = clusteringCoef;
 				ClCo.push_back(clusteringCoef);
-			} else {
-				ClCo.push_back(0);
 			}
 		} else {
 			ClCo.push_back(0);
@@ -401,7 +420,20 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 	} else {
 		unordered_set <uint> neighbors;
 		vector<set<uint>> newClust;
-		if (cut1 >= cut2){  // todo = treat equality case
+
+		if (cut1 == cut2){
+			int deltaCC1(getDeltaCC(interC, clust1, vecNodes, cutoff));
+			int deltaCC2(getDeltaCC(interC, clust2, vecNodes, cutoff));
+			if (deltaCC1 >= deltaCC2){  // keep the intersection in clust1
+				transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
+				removeSplittedElements(i2, clusters, interC);
+				cut = cut2;
+			} else {  // keep the intersection in clust2
+				transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
+				removeSplittedElements(i1, clusters, interC);
+				cut = cut1;
+			}
+		} else if (cut1 > cut2){  // todo = treat equality case
 			transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i2, clusters, interC);
 			cut = cut2;   // todo * 2 ?
