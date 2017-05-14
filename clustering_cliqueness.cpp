@@ -20,22 +20,15 @@
 #include <mutex>
 #include <functional>
 #include <utility>
+#include "clustering_cliqueness.hpp"
+
+
 
 using namespace std;
 
 
 
-struct Node{
-	uint index;
-	uint degree;
-	float CC;
-	vector<vector<uint>> cluster;
-	vector<uint> neighbors;
-	bool operator <(const Node&n) const
-    {
-        return (degree < n.degree);
-    }
-};
+
 
 struct Node_hash {
     inline std::size_t operator()(const Node& n) const {
@@ -63,25 +56,11 @@ vector<float> removeDuplicatesCC(vector<float>& vec){
 }
 
 
-//~ void finConnectedComponent(uint n, unordered_map <uint, unordered_set<uint>>& nodeToNeighbors, unordered_set<uint>& visited, unordered_set<uint>& nodesInConnexComp){
-	//~ unordered_set<uint> neighbours;
-	//~ if (not visited.count(n)){
-		//~ visited.insert(n);
-		//~ nodesInConnexComp.insert(n);
-		//~ neighbours = nodeToNeighbors[n];
-		//~ for (auto&& neigh : neighbours){
-			//~ DFS(neigh, nodeToNeighbors, visited, nodesInConnexComp);
-		//~ }
-	//~ }
-//~ }
-
-
 bool findBridge(vector<Node>& vecNodes, set<uint>& cluster, set<uint>& toRemove){
 	bool bridge(false);
 	uint neigh;
 	set<uint> inter, interC, neigh2;
 	for (auto&& nodes : toRemove){
-		//~ for (auto&& neigh : vecNodes[nodes].neighbors){
 		for (uint ne(0); ne < vecNodes[nodes].neighbors.size(); ++ne){
 			
 			neigh = vecNodes[nodes].neighbors[ne];
@@ -113,18 +92,13 @@ bool findBridge(vector<Node>& vecNodes, set<uint>& cluster, set<uint>& toRemove)
 }
 
 void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
-	//~ unordered_set<uint> neighbors;
 	if (not visited.count(n)){
 		if (vecNodes[n].CC >= cutoff){
 			above = true;
 		}
 		visited.insert(n);
 		nodesInConnexComp.insert(n);
-		//~ unordered_set<uint> neighbors(v.begin(), v.end());
-		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
-		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
 		for (auto&& neigh : vecNodes[n].neighbors){
-		//~ for (auto&& neigh : neighbors){
 			DFS(neigh, vecNodes, visited, nodesInConnexComp, above, cutoff);
 		}
 	}
@@ -199,7 +173,6 @@ float getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 			}
 		}
 	}
-	//~ totalPairs = vecNodes[n].neighbors.size() * (vecNodes[n].neighbors.size() - 1);
 	totalPairs = neighbors.size() * (neighbors.size() - 1);
 	if (totalPairs > 0){
 		clusteringCoef = pairs/totalPairs;
@@ -316,8 +289,6 @@ float computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
 	float cardUnion(0);
 	//~ unordered_set<uint> neighbors;
 	for (auto&& n : unionC){
-		//~ neighbors = {};
-		//~ copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
 		for (auto&& neigh : vecNodes[n].neighbors){
 			if (unionC.count(neigh)){
 				++cardUnion;
@@ -433,13 +404,13 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 				removeSplittedElements(i1, clusters, interC);
 				cut = cut1;
 			}
-		} else if (cut1 > cut2){  // todo = treat equality case
+		} else if (cut1 > cut2){  // split clust 2
+			bool more(findArticulPoint(clust2, vecNodes, interC));
 			transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i2, clusters, interC);
 			cut = cut2;   // todo * 2 ?
-			bool more(findBridge(vecNodes, clust2, interC));
+			//~ bool more(findBridge(vecNodes, clust2, interC));
 			if (more){
-				//~ cout << "more" << endl;			
 				newClust = assignNewClusters(clust2, vecNodes, cutoff);
 				if (newClust.size() > 1){
 					for (uint i(0); i < newClust.size(); ++i){
@@ -450,18 +421,16 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 						transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
 					}
 					clusters[i2] = {};
-				} else {
-					//~ cout << "no more" << endl;	
 				}
 			}
 		} else {
 			// split clust1
+			bool more(findArticulPoint(clust1, vecNodes, interC));
 			transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i1, clusters, interC);
 			cut = cut1;
-			bool more(findBridge(vecNodes, clust2, interC));
+			//~ bool more(findBridge(vecNodes, clust1, interC));
 			if (more){
-				//~ cout << "more" << endl;	
 				newClust = assignNewClusters(clust1, vecNodes, cutoff);
 				if (newClust.size() > 1){
 					for (uint i(0); i < newClust.size(); ++i){
@@ -473,8 +442,6 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 					}
 					clusters[i1] = {};
 				}
-			} else {
-				//~ cout << "no more" << endl;	
 			}
 		}
 	}
@@ -565,19 +532,15 @@ void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>
 
 void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
 	vector<uint> vec;
-	//~ unordered_set<uint> passed;
 	for (uint i(0); i < vecNodes.size(); ++i){
 		if (vecNodes[i].neighbors.size() < val){
-		//~ if ((not passed.count(i)) and vecNodes[i].neighbors.size() < 20){
 			set<uint> node({i});
 			set<uint> neighbors(vecNodes[i].neighbors.begin(), vecNodes[i].neighbors.end());
 			bool cut(findBridge(vecNodes, neighbors, node));
 			if (cut){
-				//~ passed.insert(i);
 				vecNodes[i].neighbors = {};
 				vec = {};
 				for (auto && neigh : neighbors){
-					//~ passed.insert(neigh);
 					for (auto&& neigh2 : vecNodes[neigh].neighbors){
 						if (neigh2 != i){
 							vec.push_back(neigh2);
@@ -591,8 +554,66 @@ void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
 }
 
 
-int main(int argc, char** argv){
 
+bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& interC){
+	bool found(false);
+	Graph graph(vecNodes.size());
+	unordered_set<uint> visited;
+	for (auto&& i : cluster){
+		visited.insert(i);
+		for (auto&& neigh : vecNodes[i].neighbors){
+			if ((not visited.count(neigh)) and cluster.count(neigh)){
+				graph.addEdge(i, neigh);
+			}
+		}
+	}
+	vector<bool> ap; // To store articulation points
+	//~ bool *ap = new bool[graph.nbNodes]; // To store articulation points
+    return graph.APBool(ap, interC);
+    //~ for (uint i(0); i < cluster.size(); ++i){
+		//~ if (interC.count(ap[i])){
+			//~ return true;
+		//~ }
+	//~ }
+    //~ return found;
+}
+
+
+void preProcessGraph(vector<Node>& vecNodes){
+	
+	Graph graph(vecNodes.size());
+	unordered_set<uint> visited;
+	for (uint i(0); i < vecNodes.size(); ++i){
+		visited.insert(i);
+		for (auto&& neigh : vecNodes[i].neighbors){
+			if (not visited.count(neigh)){
+				graph.addEdge(i, neigh);
+			}
+		}
+	}
+	vector<uint> vec;
+	vector<bool> ap; // To store articulation points
+	//~ bool *ap = new bool[graph.nbNodes]; // To store articulation points
+    graph.AP(ap);
+    for (uint i = 0; i < vecNodes.size(); i++){
+        if (ap[i] == true){
+            for (auto&& j : vecNodes[i].neighbors){
+				vec = {};
+				for (auto&& jj : vecNodes[j].neighbors){
+					if (i != jj){
+						vec.push_back(jj);
+					}
+				}
+				vecNodes[j].neighbors = vec;
+			}
+			vecNodes[i].neighbors = {};
+		}
+	}
+}
+
+
+int main(int argc, char** argv){
+	bool printHelp(false);
 	if (argc > 1){
 		bool approx(false), preprocessing(false);
 		string outFileName("final_g_clusters.txt"), fileName("");
@@ -617,148 +638,143 @@ int main(int argc, char** argv){
 					break;
 			}
 		}
-		
-		//~ string fileName(argv[1]);
-        ifstream refFile(fileName);
-		vector<Node> vecNodesGlobal;
-		cout << "Parsing..." << endl;
-		parsingSRC(refFile, vecNodesGlobal);
-		if (preprocessing){
-			cutBrigdesInConnectedComp(vecNodesGlobal, 10);
-		}
-		unordered_set<uint> visited;
-		vector<set<uint>> nodesInConnexComp;
-		bool b(false);
-		for (uint n(0); n < vecNodesGlobal.size(); ++n){
-			if (not (visited.count(n))){
-				set<uint> s;
-				DFS(n, vecNodesGlobal, visited, s, b, 0);
-				nodesInConnexComp.push_back(s);
+		if (not (fileName.empty())){
+			ifstream refFile(fileName);
+			vector<Node> vecNodesGlobal;
+			cout << "Parsing..." << endl;
+			parsingSRC(refFile, vecNodesGlobal);
+			if (preprocessing){
+				cout << "preprocessing" << endl;
+				preProcessGraph(vecNodesGlobal);
 			}
-		}
-		cout << "Connected components: " << nodesInConnexComp.size() << endl;
-
-		ofstream out(outFileName);
-		mutex mm;
-
-		vector<vector<uint>> finalClusters;
-		ofstream outm("nodes_metrics.txt"); 
-		for (uint c(0); c < nodesInConnexComp.size(); ++c){
-			//~ mm.lock();
-			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-			//~ mm.unlock();
-			//~ if (preprocessing){
-				//~ cutBrigdesInConnectedComp(vecNodesGlobal, 10);
-			//~ }
-			vector<Node> vecNodes;
-			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
-			vector<float> ClCo;
-			computeCCandDeg(vecNodes, ClCo);
-			for (auto&& node : vecNodes){
-				outm << node.index << " " << node.CC << " " << node.degree << endl;
-			}
-			vector<float>vecCC;
-			if (approx){
-				float prev(1.1), cutoffTrunc;
-				uint value;
-				//~ if (ClCo.size() > 10000){
-					//~ value = 10;
-					//value = 1000;
-				//~ } else if (ClCo.size() > 1000){
-					//~ value = 10;
-					//value = 100;
-				//~ } else {
-					//~ value = 0;
-				//~ }
-				if (ClCo.size() > 100){
-					value = 10;
-				} else {
-					value = 0;
+			unordered_set<uint> visited;
+			vector<set<uint>> nodesInConnexComp;
+			bool b(false);
+			for (uint n(0); n < vecNodesGlobal.size(); ++n){
+				if (not (visited.count(n))){
+					set<uint> s;
+					DFS(n, vecNodesGlobal, visited, s, b, 0);
+					nodesInConnexComp.push_back(s);
 				}
-				for (auto&& cutoff: ClCo){
-					if (value != 0){
-						cutoffTrunc = trunc(cutoff * value)/value;
+			}
+			cout << "Connected components: " << nodesInConnexComp.size() << endl;
+
+			ofstream out(outFileName);
+			mutex mm;
+
+			vector<vector<uint>> finalClusters;
+			ofstream outm("nodes_metrics.txt"); 
+			for (uint c(0); c < nodesInConnexComp.size(); ++c){
+				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
+				vector<Node> vecNodes;
+				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
+				if (preprocessing){
+					preProcessGraph(vecNodes);
+				}
+				vector<float> ClCo;
+				computeCCandDeg(vecNodes, ClCo);
+				for (auto&& node : vecNodes){
+					outm << node.index << " " << node.CC << " " << node.degree << endl;
+				}
+				vector<float>vecCC;
+				if (approx){
+					float prev(1.1), cutoffTrunc;
+					uint value;
+					if (ClCo.size() > 100){
+						value = 10;
 					} else {
-						cutoffTrunc = cutoff;
+						value = 0;
 					}
-					if (cutoffTrunc < prev){
-						prev = cutoffTrunc;
-						vecCC.push_back(cutoffTrunc);
-					}
-				}
-			} else {
-				for (auto&& cutoff: ClCo){
-					vecCC.push_back(cutoff);
-				}
-			}
-			uint minCut(0);
-			vector<set<uint>> clustersToKeep;
-			uint ccc(0);
-			sortVecNodes(vecNodes);  // sort by decreasing degree
-			cout << "Computing pseudo cliques" << endl;
-			computePseudoCliques(vecCC, vecNodes, nbThreads);
-			uint round(0);
-			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
-			bool compute(true);
-			#pragma omp parallel num_threads(nbThreads)
-			{
-				#pragma omp for
-				for (ccc = 0; ccc < vecCC.size(); ++ccc){
-					if (compute){
-						uint cut;
-						float precCutoff = -1;
-						float cutoff(vecCC[ccc]);
-						if (ccc != 0){
-							precCutoff = vecCC[ccc - 1];
-						}
-						vector<Node> vecNodesCpy = vecNodes;
-						vector<set<uint>> clusters(vecNodesCpy.size());
-						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
-						mm.lock();
-						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
-						++round;
-						mm.unlock();
-						if (ccc == 0){
-							mm.lock();
-							minCut = cut;
-							clustersToKeep = clusters;
-							if (minCut == 0 and cutoff == 1){
-								compute = false;
-							}
-							mm.unlock();
+					for (auto&& cutoff: ClCo){
+						if (value != 0){
+							cutoffTrunc = trunc(cutoff * value)/value;
 						} else {
-							if (cut < minCut and cut > 0){
+							cutoffTrunc = cutoff;
+						}
+						if (cutoffTrunc < prev){
+							prev = cutoffTrunc;
+							vecCC.push_back(cutoffTrunc);
+						}
+					}
+				} else {
+					for (auto&& cutoff: ClCo){
+						vecCC.push_back(cutoff);
+					}
+				}
+				uint minCut(0);
+				vector<set<uint>> clustersToKeep;
+				uint ccc(0);
+				sortVecNodes(vecNodes);  // sort by decreasing degree
+				cout << "Computing pseudo cliques" << endl;
+				computePseudoCliques(vecCC, vecNodes, nbThreads);
+				uint round(0);
+				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
+				bool compute(true);
+				#pragma omp parallel num_threads(nbThreads)
+				{
+					#pragma omp for
+					for (ccc = 0; ccc < vecCC.size(); ++ccc){
+						if (compute){
+							uint cut;
+							float precCutoff = -1;
+							float cutoff(vecCC[ccc]);
+							if (ccc != 0){
+								precCutoff = vecCC[ccc - 1];
+							}
+							vector<Node> vecNodesCpy = vecNodes;
+							vector<set<uint>> clusters(vecNodesCpy.size());
+							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
+							mm.lock();
+							cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
+							++round;
+							mm.unlock();
+							if (ccc == 0){
 								mm.lock();
 								minCut = cut;
 								clustersToKeep = clusters;
+								if (minCut == 0 and cutoff == 1){
+									compute = false;
+								}
 								mm.unlock();
+							} else {
+								if (cut < minCut and cut > 0){
+									mm.lock();
+									minCut = cut;
+									clustersToKeep = clusters;
+									mm.unlock();
+								}
 							}
 						}
 					}
 				}
-			}
-			
-			vector <uint> v;
-			for (uint i(0); i < clustersToKeep.size(); ++i){
-				v = {};
-				if (not clustersToKeep[i].empty()){
-					for (auto&& n : clustersToKeep[i]){
-						v.push_back(vecNodes[n].index);
+				
+				vector <uint> v;
+				for (uint i(0); i < clustersToKeep.size(); ++i){
+					v = {};
+					if (not clustersToKeep[i].empty()){
+						for (auto&& n : clustersToKeep[i]){
+							v.push_back(vecNodes[n].index);
+						}
+						mm.lock();
+						finalClusters.push_back(v);
+						mm.unlock();
 					}
-					mm.lock();
-					finalClusters.push_back(v);
-					mm.unlock();
 				}
 			}
-		}
-		cout << "Writing clusters in output" << endl;
-		for (uint i(0); i < finalClusters.size(); ++i){
-			for (auto&& n : finalClusters[i]){
-				out << n << " ";
+			cout << "Writing clusters in output" << endl;
+			for (uint i(0); i < finalClusters.size(); ++i){
+				for (auto&& n : finalClusters[i]){
+					out << n << " ";
+				}
+				out << endl;
 			}
-			out << endl;
+		} else {
+			printHelp = true;
 		}
 	} else {
+		printHelp = true;
+	}
+	if (printHelp){
 		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -i -c nb_cores)" << endl;
 		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research" << endl << "-c gets the number of threads (default 2)" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;

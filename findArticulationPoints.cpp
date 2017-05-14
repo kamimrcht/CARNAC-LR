@@ -1,6 +1,8 @@
 // A C++ program to find articulation points in an undirected graph
-#include<iostream>
+#include <iostream>
 #include <list>
+#include <vector>
+#include <set>
 #include "findArticulationPoints.hpp"
 
 
@@ -31,6 +33,10 @@ void Graph::addEdge(uint v, uint w)
     edges[v].push_back(w);
     edges[w].push_back(v);  
 }
+
+Graph::~Graph(){
+	delete [] edges;
+}
  
 // A recursive function that find articulation points using DFS traversal
 // u --> The vertex to be visited next
@@ -38,9 +44,9 @@ void Graph::addEdge(uint v, uint w)
 // disc[] --> Stores discovery times of visited vertices
 // parent[] --> Stores parent vertices in DFS tree
 // ap[] --> Store articulation points
-void Graph::APUtil(uint u, bool visited[], uint disc[], 
-                                      uint low[], uint parent[], bool ap[])
-{
+//~ void Graph::APUtil(uint u, bool visited[], uint disc[], uint low[], uint parent[], bool ap[]){
+void Graph::APUtil(uint u, bool visited[], uint disc[], uint low[], uint parent[], vector<bool>& ap){
+	
     // A static variable is used for simplicity, we can avoid use of static
     // variable by passing a pointer.
     static int time = 0;
@@ -89,23 +95,78 @@ void Graph::APUtil(uint u, bool visited[], uint disc[],
             low[u]  = min(low[u], disc[v]);
     }
 }
+
+
+bool Graph::APUtilBool(uint u, bool visited[], uint disc[], uint low[], uint parent[], vector<bool>& ap, set<uint>& interC){
+	bool found(false);
+    // A static variable is used for simplicity, we can avoid use of static
+    // variable by passing a pointer.
+    static int time = 0;
+ 
+    // Count of children in DFS Tree
+    uint children = 0;
+ 
+    // Mark the current node as visited
+    visited[u] = true;
+ 
+    // Initialize discovery time and low value
+    disc[u] = low[u] = ++time;
+ 
+    // Go through all vertices adjacent to this
+    list<uint>::iterator i;
+    for (i = edges[u].begin(); i != edges[u].end(); ++i)
+    {
+        uint v = *i;  // v is current adjacent of u
+ 
+        // If v is not visited yet, then make it a child of u
+        // in DFS tree and recur for it
+        if (!visited[v])
+        {
+            children++;
+            parent[v] = u;
+            APUtilBool(v, visited, disc, low, parent, ap, interC);
+ 
+            // Check if the subtree rooted with v has a connection to
+            // one of the ancestors of u
+            low[u]  = min(low[u], low[v]);
+ 
+            // u is an articulation point in following cases
+ 
+            // (1) u is root of DFS tree and has two or more chilren.
+            if (parent[u] == -1 && children > 1)
+               ap[u] = true;
+ 
+            // (2) If u is not root and low value of one of its child is more
+            // than discovery value of u.
+            if (parent[u] != -1 && low[v] >= disc[u])
+               ap[u] = true;
+        }
+		if (ap[u] and interC.count(u)){
+			return true;
+		}
+        // Update low value of u for parent function calls.
+        else if (v != parent[u])
+            low[u]  = min(low[u], disc[v]);
+    }
+    return found;
+}
  
 // The function to do DFS traversal. It uses recursive function APUtil()
-void Graph::AP(bool* ap)
-{
+//~ void Graph::AP(bool* ap)
+void Graph::AP(vector<bool>& ap){
     // Mark all the vertices as not visited
     bool *visited = new bool[nbNodes];
     uint *disc = new uint[nbNodes];
     uint *low = new uint[nbNodes];
     uint *parent = new uint[nbNodes];
-    //~ bool *ap = new bool[nbNodes]; // To store articulation points
- 
+
     // Initialize parent and visited, and ap(articulation point) arrays
     for (uint i = 0; i < nbNodes; i++)
     {
         parent[i] = -1;
         visited[i] = false;
-        ap[i] = false;
+        ap.push_back(false);
+        //~ ap[i] = false;
     }
  
     // Call the recursive helper function to find articulation points
@@ -113,51 +174,45 @@ void Graph::AP(bool* ap)
     for (uint i = 0; i < nbNodes; i++)
         if (visited[i] == false)
             APUtil(i, visited, disc, low, parent, ap);
- 
-    // Now ap[] contains articulation points, print them
-    //~ for (uint i = 0; i < nbNodes; i++)
-        //~ if (ap[i] == true)
-            //~ cout << i << " ";
+    delete visited;
+    delete disc;
+    delete low;
+    delete parent;
 }
  
-// Driver program to test above function
-//~ int main()
-//~ {
-    //~ // Create graphs given in above diagrams
-    //~ cout << "\nArticulation points in first graph \n";
-    
+bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
+	bool found(false);
+    // Mark all the vertices as not visited
+    bool *visited = new bool[nbNodes];
+    uint *disc = new uint[nbNodes];
+    uint *low = new uint[nbNodes];
+    uint *parent = new uint[nbNodes];
 
-    //~ Graph g1(5);
-    //~ g1.addEdge(1, 0);
-    //~ g1.addEdge(0, 2);
-    //~ g1.addEdge(2, 1);
-    //~ g1.addEdge(0, 3);
-    //~ g1.addEdge(3, 4);
-    //~ bool *ap1 = new bool[g1.nbNodes]; // To store articulation points
-    //~ g1.AP(ap1);
+    // Initialize parent and visited, and ap(articulation point) arrays
+    for (uint i = 0; i < nbNodes; i++)
+    {
+        parent[i] = -1;
+        visited[i] = false;
+        ap.push_back(false);
+        //~ ap[i] = false;
+    }
  
-    //~ cout << "\nArticulation points in second graph \n";
-    //~ Graph g2(4);
-    //~ g2.addEdge(0, 1);
-    //~ g2.addEdge(1, 2);
-    //~ g2.addEdge(2, 3);
-    //~ bool *ap2 = new bool[g2.nbNodes]; // To store articulation points
-    //~ g2.AP(ap2);
+    // Call the recursive helper function to find articulation points
+    // in DFS tree rooted with vertex 'i'
+    for (uint i = 0; i < nbNodes; i++){
+        if (visited[i] == false){
+            found = APUtilBool(i, visited, disc, low, parent, ap, interC);
+            if (found){
+				return false;
+			}
+		}
+     }
+    delete visited;
+    delete disc;
+    delete low;
+    delete parent;
+    return found;
+}
  
-    //~ cout << "\nArticulation points in third graph \n";
-    //~ Graph g3(7);
-    //~ g3.addEdge(0, 1);
-    //~ g3.addEdge(1, 2);
-    //~ g3.addEdge(2, 0);
-    //~ g3.addEdge(1, 3);
-    //~ g3.addEdge(1, 4);
-    //~ g3.addEdge(1, 6);
-    //~ g3.addEdge(3, 5);
-    //~ g3.addEdge(4, 5);
-    //~ bool *ap3 = new bool[g3.nbNodes]; // To store articulation points
-    //~ g3.AP(ap3);
- 
-    //~ return 0;
-//~ }
 
 
