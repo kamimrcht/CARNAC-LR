@@ -97,7 +97,7 @@ void computePrecisionAndRecall(float& recall, float& precision, vector<vector<ui
 		sum += max;
 	}
 	//~ cout << sum << " " << nbReadsTrue << " " << unassignedReads << endl;
-	recall = (float)sum/(float)(nbReadsTrue + unassignedReads);
+	recall = (float)sum/(float)(nbReadsResult + unassignedReads);
 	sum = 0; max = 0;
 	for (uint c(0); c < representantsOfResultClusters.size(); ++c){
 		max = 0;
