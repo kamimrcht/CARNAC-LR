@@ -26,10 +26,6 @@
 
 using namespace std;
 
-
-
-
-
 struct Node_hash {
     inline std::size_t operator()(const Node& n) const {
         return pow(n.index, 31) + n.degree;
@@ -582,7 +578,9 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 		}
 	}
 	vector<bool> ap; // To store articulation points
-    return graph.APBool(ap, interC);
+    bool b(graph.APBool(ap, interC));
+    return b;
+    //~ return graph.APBool(ap, interC);
 }
 
 
@@ -645,6 +643,11 @@ int main(int argc, char** argv){
 			}
 		}
 		if (not (fileName.empty())){
+			cout << "Command line was: " ;
+			for (int a(0);  a < argc; ++a){
+				cout << argv[a] << " ";
+			}
+			cout << endl;
 			ifstream refFile(fileName);
 			vector<Node> vecNodesGlobal;
 			cout << "Parsing..." << endl;
@@ -680,7 +683,7 @@ int main(int argc, char** argv){
 			vector<uint> nodesInOrderOfCC;
 			uint ccc(0);
 			uint round(0);
-			bool compute(true);
+			//~ bool compute(true);
 			for (uint c(0); c < nodesInConnexComp.size(); ++c){
 				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
 				vecNodes = {};
@@ -729,7 +732,7 @@ int main(int argc, char** argv){
 				nodesInOrderOfCC = {};
 				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC);
 				round = 0;
-				compute = true;
+				
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 				
 				#pragma omp parallel num_threads(nbThreads)
@@ -737,10 +740,9 @@ int main(int argc, char** argv){
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
 						uint cut, prevCut;
-						//~ float precCutoff = -1;
 						float cutoff(vecCC[ccc]);
+						bool compute(true);
 						if (ccc != 0){
-							//~ precCutoff = vecCC[ccc - 1];
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
 								compute = false;
 							}
