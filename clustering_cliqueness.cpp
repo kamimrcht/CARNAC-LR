@@ -124,7 +124,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
 	vector<uint>  neighbs;
 	vector<vector<uint>> clust;
 	vector<string> splitted1, splitted2, splitted3;
-	uint read, target, maxNbNodes(0);
+	uint read, target;
 	unordered_map <uint, uint> seenNodes;
 	while (not refFile.eof()){
 		getline(refFile, listNodes);
@@ -199,8 +199,7 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, f
 
 
 void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
-	float pairs, clusteringCoef;
-	uint totalPairs;
+	float clusteringCoef;
 	unordered_set<uint> neighbors;
 	// start by removing double occurrences in neighbors
 	for (uint n(0); n < vecNodes.size(); ++n){
@@ -209,7 +208,7 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 	}
 	for (uint n(0); n < vecNodes.size(); ++n){
 		if (vecNodes[n].degree > 1){
-			pairs = 0;
+			//~ pairs = 0;
 			neighbors = {};
 			copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
 			clusteringCoef = getCC(neighbors, vecNodes);
@@ -258,7 +257,7 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
 	}
-	uint c(0), nv(0);
+	uint c(0);
 	vector<unordered_set<uint>> temp(cutoffs.size());
 	#pragma omp parallel num_threads(nbThreads)
 	{
@@ -461,7 +460,8 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 
 
 uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC){
-	uint cut(0), cuthalf(0);
+	uint cut(0);
+	//~ uint cuthalf(0);
 	set<uint> clust1, clust2, unionC, interC;
 	uint i1, i2;
 	float unionCC;
@@ -571,7 +571,6 @@ void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
 
 
 bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& interC){
-	bool found(false);
 	Graph graph(vecNodes.size());
 	unordered_set<uint> visited;
 	for (auto&& i : cluster){
@@ -670,10 +669,21 @@ int main(int argc, char** argv){
 			mutex mm;
 
 			vector<vector<uint>> finalClusters;
-			ofstream outm("nodes_metrics.txt"); 
+			ofstream outm("nodes_metrics.txt");
+			vector<Node> vecNodes;
+			vector<float> ClCo;
+			vector<float>vecCC;
+			float prev(1.1), cutoffTrunc;
+			uint value;
+			uint minCut(0);
+			vector<set<uint>> clustersToKeep;
+			vector<uint> nodesInOrderOfCC;
+			uint ccc(0);
+			uint round(0);
+			bool compute(true);
 			for (uint c(0); c < nodesInConnexComp.size(); ++c){
 				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-				vector<Node> vecNodes;
+				vecNodes = {};
 				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
 
 				cout << "Pre-processing of the graph" << endl;
@@ -682,15 +692,14 @@ int main(int argc, char** argv){
 				}
 				//~ cin.get();
 
-				vector<float> ClCo;
+				ClCo = {};
 				computeCCandDeg(vecNodes, ClCo);
 				for (auto&& node : vecNodes){
 					outm << node.index << " " << node.CC << " " << node.degree << endl;
 				}
-				vector<float>vecCC;
+				vecCC = {};
 				if (approx){
-					float prev(1.1), cutoffTrunc;
-					uint value;
+					prev = 1.1;
 					if (ClCo.size() > 100){
 						value = 10;
 					} else {
@@ -712,25 +721,26 @@ int main(int argc, char** argv){
 						vecCC.push_back(cutoff);
 					}
 				}
-				uint minCut(0);
-				vector<set<uint>> clustersToKeep;
-				uint ccc(0);
+				minCut = 0;
+				clustersToKeep = {};
+				ccc = 0;
 				sortVecNodes(vecNodes);  // sort by decreasing degree
 				cout << "Computing pseudo cliques" << endl;
-				vector<uint> nodesInOrderOfCC;
+				nodesInOrderOfCC = {};
 				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC);
-				uint round(0);
+				round = 0;
+				compute = true;
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
-				bool compute(true);
+				
 				#pragma omp parallel num_threads(nbThreads)
 				{
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
 						uint cut, prevCut;
-						float precCutoff = -1;
+						//~ float precCutoff = -1;
 						float cutoff(vecCC[ccc]);
 						if (ccc != 0){
-							precCutoff = vecCC[ccc - 1];
+							//~ precCutoff = vecCC[ccc - 1];
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
 								compute = false;
 							}
@@ -755,7 +765,7 @@ int main(int argc, char** argv){
 								minCut = cut;
 								clustersToKeep = clusters;
 								if (minCut == 0 and cutoff == 1){
-									compute = false;
+									compute = false;  // clique => stop
 								}
 								mm.unlock();
 							} else {
