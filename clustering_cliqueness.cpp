@@ -409,7 +409,6 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 			transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i2, clusters, interC);
 			cut = cut2;   // todo * 2 ?
-			//~ bool more(findBridge(vecNodes, clust2, interC));
 			if (more){
 				newClust = assignNewClusters(clust2, vecNodes, cutoff);
 				if (newClust.size() > 1){
@@ -429,7 +428,6 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 			transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
 			removeSplittedElements(i1, clusters, interC);
 			cut = cut1;
-			//~ bool more(findBridge(vecNodes, clust1, interC));
 			if (more){
 				newClust = assignNewClusters(clust1, vecNodes, cutoff);
 				if (newClust.size() > 1){
@@ -568,14 +566,7 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 		}
 	}
 	vector<bool> ap; // To store articulation points
-	//~ bool *ap = new bool[graph.nbNodes]; // To store articulation points
     return graph.APBool(ap, interC);
-    //~ for (uint i(0); i < cluster.size(); ++i){
-		//~ if (interC.count(ap[i])){
-			//~ return true;
-		//~ }
-	//~ }
-    //~ return found;
 }
 
 
@@ -593,7 +584,6 @@ void preProcessGraph(vector<Node>& vecNodes){
 	}
 	vector<uint> vec;
 	vector<bool> ap; // To store articulation points
-	//~ bool *ap = new bool[graph.nbNodes]; // To store articulation points
     graph.AP(ap);
     for (uint i = 0; i < vecNodes.size(); i++){
         if (ap[i] == true){
@@ -714,13 +704,17 @@ int main(int argc, char** argv){
 				{
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
-						if (compute){
-							uint cut;
-							float precCutoff = -1;
-							float cutoff(vecCC[ccc]);
-							if (ccc != 0){
-								precCutoff = vecCC[ccc - 1];
+						uint cut;
+						float precCutoff = -1;
+						float cutoff(vecCC[ccc]);
+						if (ccc != 0){
+							precCutoff = vecCC[ccc - 1];
+							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
+								compute = false;
 							}
+						}
+						
+						if (compute){
 							vector<Node> vecNodesCpy = vecNodes;
 							vector<set<uint>> clusters(vecNodesCpy.size());
 							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
@@ -747,27 +741,16 @@ int main(int argc, char** argv){
 						}
 					}
 				}
-				
-				vector <uint> v;
 				for (uint i(0); i < clustersToKeep.size(); ++i){
-					v = {};
 					if (not clustersToKeep[i].empty()){
 						for (auto&& n : clustersToKeep[i]){
-							v.push_back(vecNodes[n].index);
+							out << vecNodes[n].index << " " ;
 						}
-						mm.lock();
-						finalClusters.push_back(v);
-						mm.unlock();
+						out << endl;
 					}
 				}
 			}
-			cout << "Writing clusters in output" << endl;
-			for (uint i(0); i < finalClusters.size(); ++i){
-				for (auto&& n : finalClusters[i]){
-					out << n << " ";
-				}
-				out << endl;
-			}
+			cout << "Done." << endl;
 		} else {
 			printHelp = true;
 		}
