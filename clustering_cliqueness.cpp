@@ -577,7 +577,7 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 		visited.insert(i);
 		for (auto&& neigh : vecNodes[i].neighbors){
 			if ((not visited.count(neigh)) and cluster.count(neigh)){
-				graph.addEdge(i, neigh);
+				graph.addEdge((int)i, neigh);
 			}
 		}
 	}
@@ -594,7 +594,7 @@ void preProcessGraph(vector<Node>& vecNodes){
 		visited.insert(i);
 		for (auto&& neigh : vecNodes[i].neighbors){
 			if (not visited.count(neigh)){
-				graph.addEdge(i, neigh);
+				graph.addEdge((int)i, neigh);
 			}
 		}
 	}

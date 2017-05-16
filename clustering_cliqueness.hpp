@@ -63,7 +63,7 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo);
 
 void sortVecNodes(vector<Node>& vecNodes);
 
-void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads);
+void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC);
 
 float computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes);
 
@@ -77,7 +77,7 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 
 uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind);
 
-uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind);
+uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC);
 
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp);
 
