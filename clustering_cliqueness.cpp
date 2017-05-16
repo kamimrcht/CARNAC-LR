@@ -251,7 +251,7 @@ void sortVecNodes(vector<Node>& vecNodes){
 }
 
 
-void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads){
+void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC){
 	vector<uint> v;
 	//~ float cutoff;
 	vector<vector<uint>> vec(cutoffs.size());
@@ -259,26 +259,39 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 		vecNodes[i].cluster = vec;
 	}
 	uint c(0), nv(0);
-	
+	vector<unordered_set<uint>> temp(cutoffs.size());
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){
+			unordered_set<uint> s;
 			float cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
 				if (vecNodes[i].CC >= cutoff){
 							vecNodes[i].cluster[c].push_back(i);
+							s.insert(i);
 							for (auto&& neigh : vecNodes[i].neighbors){
 								vecNodes[neigh].cluster[c].push_back(i);
+								s.insert(neigh);
 							}
 				}
 			}
+			temp[c] = s;
 		}
 		
-		#pragma omp for
-		for (nv = 0; nv < vecNodes.size(); ++nv){
-			for (uint ii(0); ii < vecNodes[nv].cluster.size(); ++ii){
-				vecNodes[nv].cluster[ii] = removeDuplicates(vecNodes[nv].cluster[ii]);
+		//~ #pragma omp for
+		//~ for (nv = 0; nv < vecNodes.size(); ++nv){
+			//~ for (uint ii(0); ii < vecNodes[nv].cluster.size(); ++ii){
+				//~ vecNodes[nv].cluster[ii] = removeDuplicates(vecNodes[nv].cluster[ii]);
+			//~ }
+		//~ }
+	}
+	unordered_set<uint> s;
+	for (uint i(0); i < temp.size(); ++i){
+		for (auto&& n : temp[i]){
+			if (not s.count(n)){
+				s.insert(n);
+				nodesInOrderOfCC.push_back(n);
 			}
 		}
 	}
@@ -447,7 +460,7 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 }
 
 
-uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind){
+uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC){
 	uint cut(0), cuthalf(0);
 	set<uint> clust1, clust2, unionC, interC;
 	uint i1, i2;
@@ -459,7 +472,8 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 			}
 		}
 	}
-	for (uint i(0); i < vecNodes.size(); ++i){
+	//~ for (uint i(0); i < vecNodes.size(); ++i){
+	for (auto&& i : nodesInOrderOfCC){
 		if (vecNodes[i].cluster[ind].size() > 1){  // node is in several clusters
 			while (vecNodes[i].cluster[ind].size() > 1){
 				i1 = vecNodes[i].cluster[ind][0];
@@ -488,7 +502,7 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 	cut = 0;
 
 	
-
+	sort(clusters.begin( ), clusters.end( ), [ ]( const set<uint>& lhs, const set<uint>& rhs ){return lhs.size() > rhs.size();});
 	uint halfcut(0);
 	for (uint clust1(0); clust1 < clusters.size(); ++clust1){
 		if (not clusters[clust1].empty()){
@@ -499,6 +513,9 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 							++cut;
 						} else {
 							++halfcut;
+						}
+						if (ind > 0 and cut + halfcut > prevCut){
+							return cut + halfcut/2;
 						}
 					}
 				}
@@ -658,9 +675,13 @@ int main(int argc, char** argv){
 				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
 				vector<Node> vecNodes;
 				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
+
+				cout << "Pre-processing of the graph" << endl;
 				if (preprocessing){
 					preProcessGraph(vecNodes);
 				}
+				//~ cin.get();
+
 				vector<float> ClCo;
 				computeCCandDeg(vecNodes, ClCo);
 				for (auto&& node : vecNodes){
@@ -696,7 +717,8 @@ int main(int argc, char** argv){
 				uint ccc(0);
 				sortVecNodes(vecNodes);  // sort by decreasing degree
 				cout << "Computing pseudo cliques" << endl;
-				computePseudoCliques(vecCC, vecNodes, nbThreads);
+				vector<uint> nodesInOrderOfCC;
+				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC);
 				uint round(0);
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 				bool compute(true);
@@ -704,7 +726,7 @@ int main(int argc, char** argv){
 				{
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
-						uint cut;
+						uint cut, prevCut;
 						float precCutoff = -1;
 						float cutoff(vecCC[ccc]);
 						if (ccc != 0){
@@ -712,14 +734,20 @@ int main(int argc, char** argv){
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
 								compute = false;
 							}
+							if (cut > prevCut){
+								prevCut = cut;
+							}
 						}
 						
 						if (compute){
 							vector<Node> vecNodesCpy = vecNodes;
 							vector<set<uint>> clusters(vecNodesCpy.size());
-							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc);
+							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
+							cout << "Computing clusters" << endl;
+							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
 							mm.lock();
 							cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
+							//~ cin.get();
 							++round;
 							mm.unlock();
 							if (ccc == 0){
@@ -758,8 +786,8 @@ int main(int argc, char** argv){
 		printHelp = true;
 	}
 	if (printHelp){
-		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -i -c nb_cores)" << endl;
-		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research" << endl << "-c gets the number of threads (default 2)" << endl;
+		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -i -p -c nb_cores)" << endl;
+		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research" << endl << "-p performs pre processing step" << endl << "-c gets the number of threads (default 2)" << endl;
 		cout << "Output written in final_g_clusters.txt" << endl;
 	}
 }
