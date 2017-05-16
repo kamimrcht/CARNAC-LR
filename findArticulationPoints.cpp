@@ -174,10 +174,10 @@ void Graph::AP(vector<bool>& ap){
     for (uint i = 0; i < (uint)nbNodes; i++)
         if (visited[i] == false)
             APUtil(i, visited, disc, low, parent, ap);
-    delete visited;
-    delete disc;
-    delete low;
-    delete parent;
+    delete [] visited;
+    delete [] disc;
+    delete [] low;
+    delete [] parent;
 }
  
 bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
@@ -203,14 +203,18 @@ bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
         if (visited[i] == false){
             found = APUtilBool(i, visited, disc, low, parent, ap, interC);
             if (found){
+				delete [] visited;
+				delete [] disc;
+				delete [] low;
+				delete [] parent;
 				return false;
 			}
 		}
      }
-    delete visited;
-    delete disc;
-    delete low;
-    delete parent;
+    delete [] visited;
+    delete [] disc;
+    delete [] low;
+    delete [] parent;
     return found;
 }
  
