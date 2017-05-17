@@ -187,9 +187,9 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, f
 	}
 	float CC1(getCC(clust1Without, vecNodes));
 	deltaCC = cutoff - CC1;
-	if (deltaCC < 0){
-		deltaCC *= -1;
-	}
+	//~ if (deltaCC < 0){
+		//~ deltaCC *= -1;
+	//~ }
 	return deltaCC;
 }
 
@@ -381,6 +381,10 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 			}
 		}
 	}
+
+	//~ int deltaCC1(getDeltaCC(interC, clust1, vecNodes, cutoff));
+	//~ int deltaCC2(getDeltaCC(interC, clust2, vecNodes, cutoff));
+	
 	if (clust1.size() == interC.size()){
 		transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 		removeSplittedElements(i2, clusters, interC);
@@ -396,7 +400,7 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 		if (cut1 == cut2){
 			int deltaCC1(getDeltaCC(interC, clust1, vecNodes, cutoff));
 			int deltaCC2(getDeltaCC(interC, clust2, vecNodes, cutoff));
-			if (deltaCC1 >= deltaCC2){  // keep the intersection in clust1
+			if (deltaCC1 <= deltaCC2){  // keep the intersection in clust1
 				transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 				removeSplittedElements(i2, clusters, interC);
 				cut = cut2;
