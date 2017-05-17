@@ -593,7 +593,8 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 }
 
 
-void preProcessGraph(vector<Node>& vecNodes, float cutoff){
+void preProcessGraph(vector<Node>& vecNodes, float cutoff=1.1){
+//~ void preProcessGraph(vector<Node>& vecNodes, float cutoff){
 	
 	Graph graph(vecNodes.size());
 	unordered_set<uint> visited;
@@ -632,7 +633,9 @@ int main(int argc, char** argv){
 		string outFileName("final_g_clusters.txt"), fileName("");
 		uint nbThreads(2);
 		int c;
-		while ((c = getopt (argc, argv, "f:o:c:ip")) != -1){
+		uint granularity(10);
+
+		while ((c = getopt (argc, argv, "f:o:c:i:p")) != -1){
 			switch(c){
 				case 'o':
 					outFileName=optarg;
@@ -645,6 +648,7 @@ int main(int argc, char** argv){
 					break;
 				case 'i':
 					approx = true;
+					granularity=stoi(optarg);
 					break;
 				case 'p':
 					preprocessing = true;
@@ -656,15 +660,17 @@ int main(int argc, char** argv){
 			for (int a(0);  a < argc; ++a){
 				cout << argv[a] << " ";
 			}
+			
+
 			cout << endl;
 			ifstream refFile(fileName);
 			vector<Node> vecNodesGlobal;
 			cout << "Parsing..." << endl;
 			parsingSRC(refFile, vecNodesGlobal);
-			//~ if (preprocessing){
-				//~ cout << "preprocessing" << endl;
-				//~ preProcessGraph(vecNodesGlobal);
-			//~ }
+			if (preprocessing){
+				cout << "preprocessing" << endl;
+				preProcessGraph(vecNodesGlobal);
+			}
 			unordered_set<uint> visited;
 			vector<set<uint>> nodesInConnexComp;
 			bool b(false);
@@ -699,9 +705,9 @@ int main(int argc, char** argv){
 				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
 
 				cout << "Pre-processing of the graph" << endl;
-				//~ if (preprocessing){
-					//~ preProcessGraph(vecNodes);
-				//~ }
+				if (preprocessing){
+					preProcessGraph(vecNodes);
+				}
 				//~ cin.get();
 
 				ClCo = {};
@@ -713,7 +719,7 @@ int main(int argc, char** argv){
 				if (approx){
 					prev = 1.1;
 					if (ClCo.size() > 100){
-						value = 10;
+						value = granularity;
 					} else {
 						value = 0;
 					}
@@ -762,9 +768,9 @@ int main(int argc, char** argv){
 						
 						if (compute){
 							vector<Node> vecNodesCpy = vecNodes;
-							if (preprocessing){
-								preProcessGraph(vecNodesCpy, cutoff);
-							}
+							//~ if (preprocessing){
+								//~ preProcessGraph(vecNodesCpy, cutoff);
+							//~ }
 							vector<set<uint>> clusters(vecNodesCpy.size());
 							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
 							cout << "Computing clusters" << endl;
