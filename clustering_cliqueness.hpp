@@ -84,4 +84,7 @@ void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>
 void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val);
 
 bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& interC);
+
+void preProcessGraph(vector<Node>& vecNodes, float cutoff);
+
 #endif

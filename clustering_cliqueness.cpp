@@ -258,7 +258,7 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
-		for (c = 0; c < cutoffs.size(); ++c){
+		for (c = 0; c < cutoffs.size(); ++c){  // descending cutoffs
 			unordered_set<uint> s;
 			float cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
@@ -273,20 +273,13 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 			}
 			temp[c] = s;
 		}
-		
-		//~ #pragma omp for
-		//~ for (nv = 0; nv < vecNodes.size(); ++nv){
-			//~ for (uint ii(0); ii < vecNodes[nv].cluster.size(); ++ii){
-				//~ vecNodes[nv].cluster[ii] = removeDuplicates(vecNodes[nv].cluster[ii]);
-			//~ }
-		//~ }
 	}
 	unordered_set<uint> s;
 	for (uint i(0); i < temp.size(); ++i){
 		for (auto&& n : temp[i]){
 			if (not s.count(n)){
 				s.insert(n);
-				nodesInOrderOfCC.push_back(n);
+				nodesInOrderOfCC.push_back(n);  // nodes are ordered from belonging to a cluster of higher CC to lower
 			}
 		}
 	}
@@ -468,8 +461,10 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 			}
 		}
 	}
+	uint sCut(0);
 	//~ for (uint i(0); i < vecNodes.size(); ++i){
 	for (auto&& i : nodesInOrderOfCC){
+		cut = 0;
 		if (vecNodes[i].cluster[ind].size() > 1){  // node is in several clusters
 			while (vecNodes[i].cluster[ind].size() > 1){
 				i1 = vecNodes[i].cluster[ind][0];
@@ -491,6 +486,15 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 						cut += splitClust(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind);
 					}
 				}
+			}
+		} else {
+			if (vecNodes[i].cluster[ind].size() == 1){
+				sCut += cut/2;
+			} else {
+				sCut += cut;
+			}
+			if (ind > 0 and sCut > prevCut){
+				return sCut;
 			}
 		}
 	}
@@ -519,6 +523,7 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 		}
 	}
 	return cut + halfcut/2;
+	//~ return sCut;
 }
 
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp){
@@ -584,7 +589,7 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 }
 
 
-void preProcessGraph(vector<Node>& vecNodes){
+void preProcessGraph(vector<Node>& vecNodes, float cutoff){
 	
 	Graph graph(vecNodes.size());
 	unordered_set<uint> visited;
@@ -600,7 +605,7 @@ void preProcessGraph(vector<Node>& vecNodes){
 	vector<bool> ap; // To store articulation points
     graph.AP(ap);
     for (uint i = 0; i < vecNodes.size(); i++){
-        if (ap[i] == true){
+        if (ap[i] == true and vecNodes[i].CC < cutoff){
             for (auto&& j : vecNodes[i].neighbors){
 				vec = {};
 				for (auto&& jj : vecNodes[j].neighbors){
@@ -652,10 +657,10 @@ int main(int argc, char** argv){
 			vector<Node> vecNodesGlobal;
 			cout << "Parsing..." << endl;
 			parsingSRC(refFile, vecNodesGlobal);
-			if (preprocessing){
-				cout << "preprocessing" << endl;
-				preProcessGraph(vecNodesGlobal);
-			}
+			//~ if (preprocessing){
+				//~ cout << "preprocessing" << endl;
+				//~ preProcessGraph(vecNodesGlobal);
+			//~ }
 			unordered_set<uint> visited;
 			vector<set<uint>> nodesInConnexComp;
 			bool b(false);
@@ -690,9 +695,9 @@ int main(int argc, char** argv){
 				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
 
 				cout << "Pre-processing of the graph" << endl;
-				if (preprocessing){
-					preProcessGraph(vecNodes);
-				}
+				//~ if (preprocessing){
+					//~ preProcessGraph(vecNodes);
+				//~ }
 				//~ cin.get();
 
 				ClCo = {};
@@ -753,6 +758,9 @@ int main(int argc, char** argv){
 						
 						if (compute){
 							vector<Node> vecNodesCpy = vecNodes;
+							if (preprocessing){
+								preProcessGraph(vecNodesCpy, cutoff);
+							}
 							vector<set<uint>> clusters(vecNodesCpy.size());
 							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
 							cout << "Computing clusters" << endl;
