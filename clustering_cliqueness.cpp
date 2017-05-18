@@ -52,40 +52,40 @@ vector<float> removeDuplicatesCC(vector<float>& vec){
 }
 
 
-bool findBridge(vector<Node>& vecNodes, set<uint>& cluster, set<uint>& toRemove){
-	bool bridge(false);
-	uint neigh;
-	set<uint> inter, interC, neigh2;
-	for (auto&& nodes : toRemove){
-		for (uint ne(0); ne < vecNodes[nodes].neighbors.size(); ++ne){
+//~ bool findBridge(vector<Node>& vecNodes, set<uint>& cluster, set<uint>& toRemove){
+	//~ bool bridge(false);
+	//~ uint neigh;
+	//~ set<uint> inter, interC, neigh2;
+	//~ for (auto&& nodes : toRemove){
+		//~ for (uint ne(0); ne < vecNodes[nodes].neighbors.size(); ++ne){
 			
-			neigh = vecNodes[nodes].neighbors[ne];
-			neigh2 = {};
-			for (auto && ne2 : vecNodes[neigh].neighbors){
-				if (not toRemove.count(ne2)){
-					neigh2.insert(ne2);
-				}
-			}
-			if (ne == 0){
-				interC = neigh2;
-			} else {
-				neigh2.insert(neigh);
-				inter = interC;
-				interC = {};
-				set_intersection(neigh2.begin(), neigh2.end(), inter.begin(), inter.end(), inserter(interC, interC.begin()));
-			}
-			if (interC.size() <= 1){
-				bridge = true;
-				break;
-			}
-		}
-		if (interC.size() <= 1){
-			bridge = true;
-			break;
-		}
-	}
-	return bridge;
-}
+			//~ neigh = vecNodes[nodes].neighbors[ne];
+			//~ neigh2 = {};
+			//~ for (auto && ne2 : vecNodes[neigh].neighbors){
+				//~ if (not toRemove.count(ne2)){
+					//~ neigh2.insert(ne2);
+				//~ }
+			//~ }
+			//~ if (ne == 0){
+				//~ interC = neigh2;
+			//~ } else {
+				//~ neigh2.insert(neigh);
+				//~ inter = interC;
+				//~ interC = {};
+				//~ set_intersection(neigh2.begin(), neigh2.end(), inter.begin(), inter.end(), inserter(interC, interC.begin()));
+			//~ }
+			//~ if (interC.size() <= 1){
+				//~ bridge = true;
+				//~ break;
+			//~ }
+		//~ }
+		//~ if (interC.size() <= 1){
+			//~ bridge = true;
+			//~ break;
+		//~ }
+	//~ }
+	//~ return bridge;
+//~ }
 
 void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
 	if (not visited.count(n)){
@@ -203,7 +203,7 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
 		vecNodes[n].degree = vecNodes[n].neighbors.size();
 	}
 	for (uint n(0); n < vecNodes.size(); ++n){
-		if (vecNodes[n].degree > 1){
+		if (vecNodes[n].neighbors.size() > 1){
 			//~ pairs = 0;
 			neighbors = {};
 			copy(vecNodes[n].neighbors.begin(), vecNodes[n].neighbors.end(), inserter(neighbors, neighbors.end()));
@@ -369,8 +369,10 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 }
 
 
-uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
-	uint cut1(0), cut2(0), cut(0);
+//~ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
+float splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
+	//~ uint cut1(0), cut2(0), cut(0);
+	float cut1(0), cut2(0), cut(0);
 	for (auto&& node : interC){
 		for (auto&& neigh : vecNodes[node].neighbors){
 			if (clust1.count(neigh)){
@@ -424,7 +426,8 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 						}
 						transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
 					}
-					clusters[i2] = {};
+					//~ clusters[i2] = {};
+					clusters[i2].clear();
 				}
 			}
 		} else {
@@ -443,7 +446,8 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 						}
 						transfer(clusters.size() - 1, i1, newClust[i], clust1, vecNodes, clusters, ind);
 					}
-					clusters[i1] = {};
+					//~ clusters[i1] = {};
+					clusters[i1].clear();
 				}
 			}
 		}
@@ -452,8 +456,10 @@ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<s
 }
 
 
-uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC){
-	uint cut(0);
+//~ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC){
+float computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, float prevCut, vector<uint>& nodesInOrderOfCC){
+	//~ uint cut(0);
+	float cut(0);
 	//~ uint cuthalf(0);
 	set<uint> clust1, clust2, unionC, interC;
 	uint i1, i2;
@@ -465,11 +471,14 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 			}
 		}
 	}
-	uint sCut(0);
+	//~ uint sCut(0);
+	float sCut(0);
 	//~ for (uint i(0); i < vecNodes.size(); ++i){
 	for (auto&& i : nodesInOrderOfCC){
+		
 		cut = 0;
 		if (vecNodes[i].cluster[ind].size() > 1){  // node is in several clusters
+			
 			while (vecNodes[i].cluster[ind].size() > 1){
 				i1 = vecNodes[i].cluster[ind][0];
 				i2 = vecNodes[i].cluster[ind][1];
@@ -492,11 +501,7 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 				}
 			}
 		} else {
-			if (vecNodes[i].cluster[ind].size() == 1){
-				sCut += cut/2;
-			} else {
 				sCut += cut;
-			}
 			if (ind > 0 and sCut > prevCut){
 				return sCut;
 			}
@@ -504,30 +509,26 @@ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint
 	}
 
 	cut = 0;
-
-	
-	sort(clusters.begin( ), clusters.end( ), [ ]( const set<uint>& lhs, const set<uint>& rhs ){return lhs.size() > rhs.size();});
-	uint halfcut(0);
-	for (uint clust1(0); clust1 < clusters.size(); ++clust1){
-		if (not clusters[clust1].empty()){
-			for (auto && i : clusters[clust1]){
-				for (auto&& n : vecNodes[i].neighbors){
-					if (not (clusters[clust1].count(n))){
-						if (vecNodes[n].cluster[ind].empty()){
-							++cut;
-						} else {
-							++halfcut;
-						}
-						if (ind > 0 and cut + halfcut > prevCut){
-							return cut + halfcut/2;
-						}
+	vector <uint> seen(vecNodes.size(), 0);
+	for (uint i(0); i < vecNodes.size(); ++i){
+		if (vecNodes[i].cluster[ind].empty() and (not vecNodes[i].neighbors.empty())){
+			for (auto&& ne : vecNodes[i].neighbors){
+				++cut;
+			}
+		} else {
+			if (not vecNodes[i].cluster[ind].empty()){
+				for (auto&& ne : vecNodes[i].neighbors){
+					if (not (clusters[vecNodes[i].cluster[ind][0]].count(ne))){
+						++cut;
 					}
 				}
-			}
+			} 
 		}
 	}
-	return cut + halfcut/2;
-	//~ return sCut;
+				
+
+				
+	return cut;
 }
 
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp){
@@ -550,28 +551,28 @@ void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>
 
 
 
-void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
-	vector<uint> vec;
-	for (uint i(0); i < vecNodes.size(); ++i){
-		if (vecNodes[i].neighbors.size() < val){
-			set<uint> node({i});
-			set<uint> neighbors(vecNodes[i].neighbors.begin(), vecNodes[i].neighbors.end());
-			bool cut(findBridge(vecNodes, neighbors, node));
-			if (cut){
-				vecNodes[i].neighbors = {};
-				vec = {};
-				for (auto && neigh : neighbors){
-					for (auto&& neigh2 : vecNodes[neigh].neighbors){
-						if (neigh2 != i){
-							vec.push_back(neigh2);
-						}
-					}
-					vecNodes[neigh].neighbors = vec;
-				}
-			}
-		}
-	}
-}
+//~ void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val){
+	//~ vector<uint> vec;
+	//~ for (uint i(0); i < vecNodes.size(); ++i){
+		//~ if (vecNodes[i].neighbors.size() < val){
+			//~ set<uint> node({i});
+			//~ set<uint> neighbors(vecNodes[i].neighbors.begin(), vecNodes[i].neighbors.end());
+			//~ bool cut(findBridge(vecNodes, neighbors, node));
+			//~ if (cut){
+				//~ vecNodes[i].neighbors = {};
+				//~ vec = {};
+				//~ for (auto && neigh : neighbors){
+					//~ for (auto&& neigh2 : vecNodes[neigh].neighbors){
+						//~ if (neigh2 != i){
+							//~ vec.push_back(neigh2);
+						//~ }
+					//~ }
+					//~ vecNodes[neigh].neighbors = vec;
+				//~ }
+			//~ }
+		//~ }
+	//~ }
+//~ }
 
 
 
@@ -619,8 +620,10 @@ void preProcessGraph(vector<Node>& vecNodes, float cutoff=1.1){
 					}
 				}
 				vecNodes[j].neighbors = vec;
+				vecNodes[j].degree = vecNodes[j].neighbors.size();
 			}
 			vecNodes[i].neighbors = {};
+			vecNodes[i].degree = 0;
 		}
 	}
 }
@@ -693,7 +696,8 @@ int main(int argc, char** argv){
 			vector<float>vecCC;
 			float prev(1.1), cutoffTrunc;
 			uint value;
-			uint minCut(0);
+			//~ uint minCut(0);
+			float minCut(0);
 			vector<set<uint>> clustersToKeep;
 			vector<uint> nodesInOrderOfCC;
 			uint ccc(0);
@@ -713,7 +717,7 @@ int main(int argc, char** argv){
 				ClCo = {};
 				computeCCandDeg(vecNodes, ClCo);
 				for (auto&& node : vecNodes){
-					outm << node.index << " " << node.CC << " " << node.degree << endl;
+					outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
 				}
 				vecCC = {};
 				if (approx){
@@ -742,7 +746,7 @@ int main(int argc, char** argv){
 				minCut = 0;
 				clustersToKeep = {};
 				ccc = 0;
-				sortVecNodes(vecNodes);  // sort by decreasing degree
+				//~ sortVecNodes(vecNodes);  // sort by decreasing degree
 				cout << "Computing pseudo cliques" << endl;
 				nodesInOrderOfCC = {};
 				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC);
@@ -754,7 +758,8 @@ int main(int argc, char** argv){
 				{
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
-						uint cut, prevCut;
+						//~ uint cut, prevCut;
+						float cut, prevCut;
 						float cutoff(vecCC[ccc]);
 						bool compute(true);
 						if (ccc != 0){
