@@ -111,7 +111,8 @@ vector<string> split(const string &s, char delim){
 }
 
 
-void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
+
+void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 	string listNodes;
 	// header
 	getline(refFile, listNodes);
@@ -122,6 +123,8 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
 	vector<string> splitted1, splitted2, splitted3;
 	uint read, target;
 	unordered_map <uint, uint> seenNodes;
+	unordered_map <uint, float> neighbToWeight;
+	float weight(1);
 	while (not refFile.eof()){
 		getline(refFile, listNodes);
 		splitted1 = split(listNodes, ':');
@@ -132,24 +135,39 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes){
 				for (uint i(0); i < splitted2.size(); ++i){
 					splitted3 = split(splitted2[i], '-');
 					read = stoi(splitted3[0]);  // recruited read
+					if (weighted){
+						weight = stof(splitted3[1]) / 100;
+					}
+					//~ weight = 1;
+					//~ cout << "w " << weight << endl;
 					if (read != target){
 						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
-							clust = {}; neighbs = {};
-							Node t({target, 0, 0, clust, neighbs});
+							clust = {}; neighbs = {}; neighbToWeight = {};
+							Node t({target, 0, 0, clust, neighbs, neighbToWeight});
 							vecNodes.push_back({t});  // store in vecNodes
+							vecNodes.back().neighbToWeight.insert({read, weight});
 							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
 						}
 						if (seenNodes.count(read)){ // this neighbour is already in the vector of nodes
 							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
+							if (not vecNodes[seenNodes[target]].neighbToWeight.count(read)){
+								vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});
+							}
+							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
 							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
+							if (not vecNodes[seenNodes[read]].neighbToWeight.count(target)){
+								vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight});
+							}
 						} else {  // new neighbor not already in the vector of nodes
-							clust = {}; neighbs = {};
-							Node r({read, 0, 0, clust, neighbs});
+							clust = {}; neighbs = {}; neighbToWeight = {};
+							Node r({read, 0, 0, clust, neighbs, neighbToWeight});
 							vecNodes.push_back({r});
 							uint position(vecNodes.size() - 1);
 							seenNodes.insert({read, position});
 							vecNodes[seenNodes[target]].neighbors.push_back(vecNodes.size() - 1);  // store read as neighbor of target
 							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
+							vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight}); 
+							vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});  
 						}
 					}
 				}
@@ -376,10 +394,12 @@ float splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<
 	for (auto&& node : interC){
 		for (auto&& neigh : vecNodes[node].neighbors){
 			if (clust1.count(neigh)){
-				++cut1;
+				//~ ++cut1;
+				cut1 += vecNodes[node].neighbToWeight[vecNodes[neigh].index];
 			}
 			if (clust2.count(neigh)){
-				++cut2;
+				//~ ++cut2;
+				cut2 += vecNodes[node].neighbToWeight[vecNodes[neigh].index];
 			}
 		}
 	}
@@ -513,20 +533,29 @@ float computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uin
 	for (uint i(0); i < vecNodes.size(); ++i){
 		if (vecNodes[i].cluster[ind].empty() and (not vecNodes[i].neighbors.empty())){
 			for (auto&& ne : vecNodes[i].neighbors){
-				++cut;
+				//~ ++cut;
+				//~ cut += 1;
+				//~ cout << vecNodes[i].neighbToWeight[vecNodes[ne].index] << endl;
+				cut += vecNodes[i].neighbToWeight[vecNodes[ne].index];
+				//~ cin.get();
 			}
 		} else {
 			if (not vecNodes[i].cluster[ind].empty()){
 				for (auto&& ne : vecNodes[i].neighbors){
 					if (not (clusters[vecNodes[i].cluster[ind][0]].count(ne))){
-						++cut;
+						//~ ++cut;
+						//~ cut += 1;
+						//~ cout << vecNodes[i].neighbToWeight[vecNodes[ne].index] << endl;
+						cut += vecNodes[i].neighbToWeight[vecNodes[ne].index];
+						//~ cin.get();
 					}
 				}
 			} 
 		}
 	}
 				
-
+	//~ cout << cut << endl;
+	//~ cin.get();
 				
 	return cut;
 }
@@ -632,13 +661,13 @@ void preProcessGraph(vector<Node>& vecNodes, float cutoff=1.1){
 int main(int argc, char** argv){
 	bool printHelp(false);
 	if (argc > 1){
-		bool approx(false), preprocessing(false);
+		bool approx(false), preprocessing(false), weighted(false);
 		string outFileName("final_g_clusters.txt"), fileName("");
 		uint nbThreads(2);
 		int c;
 		uint granularity(10);
 
-		while ((c = getopt (argc, argv, "f:o:c:i:p")) != -1){
+		while ((c = getopt (argc, argv, "f:o:c:i:pw")) != -1){
 			switch(c){
 				case 'o':
 					outFileName=optarg;
@@ -656,6 +685,9 @@ int main(int argc, char** argv){
 				case 'p':
 					preprocessing = true;
 					break;
+				case 'w':
+					weighted = true;
+					break;
 			}
 		}
 		if (not (fileName.empty())){
@@ -669,7 +701,7 @@ int main(int argc, char** argv){
 			ifstream refFile(fileName);
 			vector<Node> vecNodesGlobal;
 			cout << "Parsing..." << endl;
-			parsingSRC(refFile, vecNodesGlobal);
+			parsingSRC(refFile, vecNodesGlobal, weighted);
 			if (preprocessing){
 				cout << "preprocessing" << endl;
 				preProcessGraph(vecNodesGlobal);
@@ -753,7 +785,7 @@ int main(int argc, char** argv){
 				round = 0;
 				
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
-				
+				bool compute(true);
 				#pragma omp parallel num_threads(nbThreads)
 				{
 					#pragma omp for
@@ -761,10 +793,12 @@ int main(int argc, char** argv){
 						//~ uint cut, prevCut;
 						float cut, prevCut;
 						float cutoff(vecCC[ccc]);
-						bool compute(true);
+						
 						if (ccc != 0){
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
+								mm.lock();
 								compute = false;
+								mm.unlock();
 							}
 							if (cut > prevCut){
 								prevCut = cut;

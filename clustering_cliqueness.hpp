@@ -33,6 +33,7 @@ struct Node{
 	float CC;
 	vector<vector<uint>> cluster;
 	vector<uint> neighbors;
+	unordered_map<uint, float> neighbToWeight;
 	bool operator <(const Node&n) const
     {
         return (degree < n.degree);
@@ -78,7 +79,8 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 //~ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind);
 float splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind);
 
-uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC);
+//~ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC);
+float computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, float prevCut, vector<uint>& nodesInOrderOfCC);
 
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp);
 
