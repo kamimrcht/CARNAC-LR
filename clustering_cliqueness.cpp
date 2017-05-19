@@ -212,13 +212,14 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, d
 }
 
 
-void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo){
+void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>& degrees){
 	double clusteringCoef;
 	unordered_set<uint> neighbors;
 	// start by removing double occurrences in neighbors
 	for (uint n(0); n < vecNodes.size(); ++n){
 		vecNodes[n].neighbors = removeDuplicates(vecNodes[n].neighbors);
 		vecNodes[n].degree = vecNodes[n].neighbors.size();
+		degrees.push_back(vecNodes[n].degree);
 	}
 	for (uint n(0); n < vecNodes.size(); ++n){
 		if (vecNodes[n].neighbors.size() > 1){
@@ -264,7 +265,7 @@ void sortVecNodes(vector<Node>& vecNodes){
 }
 
 
-void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC){
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC){
 	vector<uint> v;
 	//~ float cutoff;
 	vector<vector<uint>> vec(cutoffs.size());
@@ -280,7 +281,8 @@ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint 
 			unordered_set<uint> s;
 			double cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
-				if (vecNodes[i].CC >= cutoff){
+				if (vecNodes[i].CC >= cutoff and not (vecNodes[i].degree >= higherDegree and vecNodes[i].CC <= lowerCC)){
+				//~ if (vecNodes[i].CC >= cutoff ){
 							vecNodes[i].cluster[c].push_back(i);
 							s.insert(i);
 							for (auto&& neigh : vecNodes[i].neighbors){
@@ -624,8 +626,6 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 
 
 void preProcessGraph(vector<Node>& vecNodes, double cutoff=1.1){
-//~ void preProcessGraph(vector<Node>& vecNodes, float cutoff){
-	
 	Graph graph(vecNodes.size());
 	unordered_set<uint> visited;
 	for (uint i(0); i < vecNodes.size(); ++i){
@@ -656,6 +656,44 @@ void preProcessGraph(vector<Node>& vecNodes, double cutoff=1.1){
 		}
 	}
 }
+
+void preProcessGraphQuantiles(vector<Node>& vecNodes, double cutoffCC, uint cutoffEdges){
+	vector<uint> vec;
+	for (uint i = 0; i < vecNodes.size(); i++){
+        if (vecNodes[i].degree >= cutoffEdges and vecNodes[i].CC <= cutoffCC){
+            for (auto&& j : vecNodes[i].neighbors){
+				vec = {};
+				for (auto&& jj : vecNodes[j].neighbors){
+					if (i != jj){
+						vec.push_back(jj);
+					}
+				}
+				vecNodes[j].neighbors = vec;
+				vecNodes[j].degree = vecNodes[j].neighbors.size();
+			}
+			vecNodes[i].neighbors = {};
+			vecNodes[i].degree = 0;
+		}
+	}
+}
+
+
+
+uint quantileEdges(vector<uint>&degrees, uint no, uint q){
+	double e;
+	e = degrees.size()*((double)no/q);
+	return (uint)e;
+}
+
+
+double quantileCC(vector<double>&CC, uint no, uint q){
+	double cc;
+	cc = CC.size()*((float)no/q);
+	return cc;
+}
+
+
+
 
 
 int main(int argc, char** argv){
@@ -705,6 +743,7 @@ int main(int argc, char** argv){
 			if (preprocessing){
 				cout << "preprocessing" << endl;
 				preProcessGraph(vecNodesGlobal);
+				//~ preProcessGraphQuantiles(vecNodesGlobal);
 			}
 			unordered_set<uint> visited;
 			vector<set<uint>> nodesInConnexComp;
@@ -724,7 +763,8 @@ int main(int argc, char** argv){
 			vector<vector<uint>> finalClusters;
 			ofstream outm("nodes_metrics.txt");
 			vector<Node> vecNodes;
-			vector<double> ClCo;
+			vector<double>ClCo;
+			vector<uint> degrees;
 			vector<double>vecCC;
 			double prev(1.1), cutoffTrunc;
 			uint value;
@@ -734,6 +774,8 @@ int main(int argc, char** argv){
 			vector<uint> nodesInOrderOfCC;
 			uint ccc(0);
 			uint round(0);
+			float lowerCC(0);
+			uint higherDegree;
 			//~ bool compute(true);
 			for (uint c(0); c < nodesInConnexComp.size(); ++c){
 				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
@@ -747,7 +789,12 @@ int main(int argc, char** argv){
 				//~ cin.get();
 
 				ClCo = {};
-				computeCCandDeg(vecNodes, ClCo);
+				computeCCandDeg(vecNodes, ClCo, degrees);
+				lowerCC = quantileCC(ClCo, 1, 1000);
+				higherDegree = quantileEdges(degrees, 999, 1000);
+				//~ if (preprocessing){
+					//~ preProcessGraphQuantiles(vecNodes, lowerCC, higherDegree);
+				//~ }
 				for (auto&& node : vecNodes){
 					outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
 				}
@@ -781,7 +828,7 @@ int main(int argc, char** argv){
 				//~ sortVecNodes(vecNodes);  // sort by decreasing degree
 				cout << "Computing pseudo cliques" << endl;
 				nodesInOrderOfCC = {};
-				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC);
+				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
 				round = 0;
 				
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
@@ -804,8 +851,9 @@ int main(int argc, char** argv){
 								prevCut = cut;
 							}
 						}
-						
+						//~ if (compute ){
 						if (compute){
+						//~ if (compute and cutoff > lowerCC){
 							vector<Node> vecNodesCpy = vecNodes;
 							//~ if (preprocessing){
 								//~ preProcessGraph(vecNodesCpy, cutoff);
