@@ -45,7 +45,7 @@ vector<uint> removeDuplicates(vector<uint>& vec){
 	return vec;
 }
 
-vector<float> removeDuplicatesCC(vector<float>& vec){
+vector<double> removeDuplicatesCC(vector<double>& vec){
 	sort(vec.begin(), vec.end());
 	vec.erase(unique(vec.begin(), vec.end()), vec.end());
 	return vec;
@@ -87,7 +87,7 @@ vector<float> removeDuplicatesCC(vector<float>& vec){
 	//~ return bridge;
 //~ }
 
-void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, float cutoff){
+void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, double cutoff){
 	if (not visited.count(n)){
 		if (vecNodes[n].CC >= cutoff){
 			above = true;
@@ -123,8 +123,8 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 	vector<string> splitted1, splitted2, splitted3;
 	uint read, target;
 	unordered_map <uint, uint> seenNodes;
-	unordered_map <uint, float> neighbToWeight;
-	float weight(1);
+	unordered_map <uint, double> neighbToWeight;
+	double weight(1);
 	while (not refFile.eof()){
 		getline(refFile, listNodes);
 		splitted1 = split(listNodes, ':');
@@ -136,7 +136,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 					splitted3 = split(splitted2[i], '-');
 					read = stoi(splitted3[0]);  // recruited read
 					if (weighted){
-						weight = stof(splitted3[1]) / (-100);
+						weight = 1/ (stof(splitted3[1]));
 					}
 					//~ weight = 1;
 					//~ cout << "w " << weight << endl;
@@ -177,8 +177,8 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 }
 
 
-float getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
-	float pairs(0), clusteringCoef(0);
+double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
+	double pairs(0), clusteringCoef(0);
 	uint totalPairs;
 	for (auto&& neigh : neighbors){  // for each neighbor of the node
 		for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
@@ -195,7 +195,7 @@ float getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 }
 
 
-int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, float cutoff){
+int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, double cutoff){
 	int deltaCC(0);
 	unordered_set<uint> clust1Without;
 	for (auto&& i : clust1){
@@ -203,7 +203,7 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, f
 			clust1Without.insert(i);
 		}
 	}
-	float CC1(getCC(clust1Without, vecNodes));
+	double CC1(getCC(clust1Without, vecNodes));
 	deltaCC = cutoff - CC1;
 	//~ if (deltaCC < 0){
 		//~ deltaCC *= -1;
@@ -212,8 +212,8 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, f
 }
 
 
-void computeCCandDeg(vector<Node>& vecNodes, vector<float>& ClCo){
-	float clusteringCoef;
+void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo){
+	double clusteringCoef;
 	unordered_set<uint> neighbors;
 	// start by removing double occurrences in neighbors
 	for (uint n(0); n < vecNodes.size(); ++n){
@@ -264,7 +264,7 @@ void sortVecNodes(vector<Node>& vecNodes){
 }
 
 
-void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC){
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC){
 	vector<uint> v;
 	//~ float cutoff;
 	vector<vector<uint>> vec(cutoffs.size());
@@ -278,7 +278,7 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){  // descending cutoffs
 			unordered_set<uint> s;
-			float cutoff = cutoffs[c];
+			double cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
 				if (vecNodes[i].CC >= cutoff){
 							vecNodes[i].cluster[c].push_back(i);
@@ -304,8 +304,8 @@ void computePseudoCliques(vector<float>& cutoffs, vector<Node>& vecNodes, uint n
 }
 
 
-float computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
-	float cardUnion(0);
+double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
+	double cardUnion(0);
 	//~ unordered_set<uint> neighbors;
 	for (auto&& n : unionC){
 		for (auto&& neigh : vecNodes[n].neighbors){
@@ -357,7 +357,7 @@ void merge(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<ui
 
 
 
-vector<set<uint>> assignNewClusters(set<uint>& clust, vector<Node>& vecNodes, float cutoff){
+vector<set<uint>> assignNewClusters(set<uint>& clust, vector<Node>& vecNodes, double cutoff){
 	bool above(false);
 	unordered_set<uint> visited;
 	set<uint> nodesInConnexComp;
@@ -388,9 +388,9 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 
 
 //~ uint splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
-float splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
+double splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
 	//~ uint cut1(0), cut2(0), cut(0);
-	float cut1(0), cut2(0), cut(0);
+	double cut1(0), cut2(0), cut(0);
 	for (auto&& node : interC){
 		for (auto&& neigh : vecNodes[node].neighbors){
 			if (clust1.count(neigh)){
@@ -477,13 +477,13 @@ float splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<
 
 
 //~ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC){
-float computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, float prevCut, vector<uint>& nodesInOrderOfCC){
+double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC){
 	//~ uint cut(0);
-	float cut(0);
+	double cut(0);
 	//~ uint cuthalf(0);
 	set<uint> clust1, clust2, unionC, interC;
 	uint i1, i2;
-	float unionCC;
+	double unionCC;
 	for (uint n(0); n < vecNodes.size(); ++n){
 		if (vecNodes[n].cluster[ind].size() > 0){
 			for (auto&& c : vecNodes[n].cluster[ind]){
@@ -492,7 +492,7 @@ float computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uin
 		}
 	}
 	//~ uint sCut(0);
-	float sCut(0);
+	double sCut(0);
 	//~ for (uint i(0); i < vecNodes.size(); ++i){
 	for (auto&& i : nodesInOrderOfCC){
 		
@@ -623,7 +623,7 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 }
 
 
-void preProcessGraph(vector<Node>& vecNodes, float cutoff=1.1){
+void preProcessGraph(vector<Node>& vecNodes, double cutoff=1.1){
 //~ void preProcessGraph(vector<Node>& vecNodes, float cutoff){
 	
 	Graph graph(vecNodes.size());
@@ -724,12 +724,12 @@ int main(int argc, char** argv){
 			vector<vector<uint>> finalClusters;
 			ofstream outm("nodes_metrics.txt");
 			vector<Node> vecNodes;
-			vector<float> ClCo;
-			vector<float>vecCC;
-			float prev(1.1), cutoffTrunc;
+			vector<double> ClCo;
+			vector<double>vecCC;
+			double prev(1.1), cutoffTrunc;
 			uint value;
 			//~ uint minCut(0);
-			float minCut(0);
+			double minCut(0);
 			vector<set<uint>> clustersToKeep;
 			vector<uint> nodesInOrderOfCC;
 			uint ccc(0);
@@ -791,8 +791,8 @@ int main(int argc, char** argv){
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
 						//~ uint cut, prevCut;
-						float cut, prevCut;
-						float cutoff(vecCC[ccc]);
+						double cut, prevCut;
+						double cutoff(vecCC[ccc]);
 						
 						if (ccc != 0){
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
