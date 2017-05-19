@@ -136,7 +136,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 					splitted3 = split(splitted2[i], '-');
 					read = stoi(splitted3[0]);  // recruited read
 					if (weighted){
-						weight = stof(splitted3[1]) / 100;
+						weight = stof(splitted3[1]) / (-100);
 					}
 					//~ weight = 1;
 					//~ cout << "w " << weight << endl;
@@ -823,16 +823,27 @@ int main(int argc, char** argv){
 								mm.lock();
 								minCut = cut;
 								clustersToKeep = clusters;
-								if (minCut == 0 and cutoff == 1){
-									compute = false;  // clique => stop
+								if (not weighted){
+									if (minCut == 0 and cutoff == 1){
+										compute = false;  // clique => stop
+									}
 								}
 								mm.unlock();
 							} else {
-								if (cut < minCut and cut > 0){
-									mm.lock();
-									minCut = cut;
-									clustersToKeep = clusters;
-									mm.unlock();
+								if (not weighted){
+									if (cut < minCut and cut > 0){
+										mm.lock();
+										minCut = cut;
+										clustersToKeep = clusters;
+										mm.unlock();
+									}
+								} else {
+									if (cut < minCut){
+										mm.lock();
+										minCut = cut;
+										clustersToKeep = clusters;
+										mm.unlock();
+									}
 								}
 							}
 						}
