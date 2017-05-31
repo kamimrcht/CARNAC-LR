@@ -76,6 +76,16 @@ vector<string> split(const string &s, char delim){
 }
 
 
+//  parser for infile at SRC format.
+// fills a vector of Nodes
+// Nodes are reads, they remember their neighbors in the graphs
+// Edges exist when a similarity is reported in the infile
+// Weights info also come from infile
+// in the case infile reports:
+// read1: read2 read3
+// read2: read3
+// edges will be (1,2) (1,3) (2,3) (non oriented) which means a similarity becomes an edge even if it is reported in only one direction (read 1 to 2 for instance)
+// weights:
 
 void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 	string listNodes;
@@ -140,6 +150,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 }
 
 
+//compute the CC of a node with its set of neighbors
 double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 	double pairs(0), clusteringCoef(0);
 	uint totalPairs;
@@ -158,6 +169,10 @@ double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 }
 
 
+// the CC values are compared before and after the removal of a sub set of nodes
+// if the value is > 0: the removal impacted negatively the cliqueness
+// if the value == 0:  no change
+// if the value < 0: the cliqueness is better without the nodes
 int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, double cutoff){
 	int deltaCC(0);
 	unordered_set<uint> clust1Without;
@@ -172,15 +187,21 @@ int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, d
 }
 
 
-void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>& degrees){
+// compute clustering coefficient and degree for each node
+// CC will be stored in ClCo and degrees in vector degrees
+// the CC are stored by decreasing values in the vector as we will start with nodes of highest CC later in the code
+// the graph is not oriented so the degree of a node is the nb of edges going through this node
+void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>& degrees, float& lowerCC){
 	double clusteringCoef;
 	unordered_set<uint> neighbors;
-	// start by removing double occurrences in neighbors
+	// start by removing double occurrences in neighbors (a neighbor of a node that would be stored twice)
 	for (uint n(0); n < vecNodes.size(); ++n){
-		vecNodes[n].neighbors = removeDuplicates(vecNodes[n].neighbors);
+		vecNodes[n].neighbors = removeDuplicates(vecNodes[n].neighbors); 
 		vecNodes[n].degree = vecNodes[n].neighbors.size();
 		degrees.push_back(vecNodes[n].degree);
 	}
+	
+	// fill vector of CC
 	for (uint n(0); n < vecNodes.size(); ++n){
 		if (vecNodes[n].neighbors.size() > 1){
 			neighbors = {};
@@ -194,6 +215,12 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>&
 			ClCo.push_back(0);
 		}
 	}
+
+	// compute the quantiles of the CC and get the CC value that represents the first quantile
+	lowerCC = quantileCC(ClCo, 1, 1000);
+	
+	// remove duplicated values of CC (so that we don't compute twice a cutoff value later)
+	// and sort CC in vector by decreasing values
 	ClCo = removeDuplicatesCC(ClCo);
 	sort(ClCo.begin(), ClCo.end());
 	reverse(ClCo.begin(), ClCo.end());
@@ -224,14 +251,25 @@ void sortVecNodes(vector<Node>& vecNodes){
 }
 
 
+
+// compute sets around seed nodes
+// seed nodes are those whose CC is above the current cutoff
+// they gather their direct neighbors in sets that are quasi cliques
+// nodes which degree is above the last quantile and CC is below the last quantile (even if it is above the current cutoff) are not seeds
+// the function is multi threaded with one thread by cutoff
+// each Nodes stores a vector of vector (.cluster) )of the size of the length of the list of cutoffs
+// in each vector of this vector, if the node is a seed, a number of set is stored (the same number is stored for nodes included in the set)
+// this way, at a given cutoff, a node can know if it is in different sets
+// finally we sort the nodes in decreasing order of CC
 void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC){
 	vector<uint> v;
 	vector<vector<uint>> vec(cutoffs.size());
+	// for each node, at each cutoff value we will store a vector that sums up the number of sets the node belongs to
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
 	}
 	uint c(0);
-	vector<unordered_set<uint>> temp(cutoffs.size());
+	vector<unordered_set<uint>> temp(cutoffs.size());  // sets identifiers for each cutoff value
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
@@ -239,21 +277,21 @@ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint 
 			unordered_set<uint> s;
 			double cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
-				if (vecNodes[i].CC >= cutoff and not (vecNodes[i].degree >= higherDegree and vecNodes[i].CC <= lowerCC)){
-							vecNodes[i].cluster[c].push_back(i);
-							s.insert(i);
-							for (auto&& neigh : vecNodes[i].neighbors){
-								vecNodes[neigh].cluster[c].push_back(i);
-								s.insert(neigh);
-							}
+				if (vecNodes[i].CC >= cutoff and not (vecNodes[i].degree >= higherDegree and vecNodes[i].CC <= lowerCC)){  // if the node is a seed
+					vecNodes[i].cluster[c].push_back(i);  // store a set identifier for this node
+					s.insert(i);
+					for (auto&& neigh : vecNodes[i].neighbors){
+						vecNodes[neigh].cluster[c].push_back(i);  // also include direct neighbors in set
+						s.insert(neigh);
+					}
 				}
 			}
 			temp[c] = s;
 		}
 	}
 	unordered_set<uint> s;
-	for (uint i(0); i < temp.size(); ++i){
-		for (auto&& n : temp[i]){
+	for (uint i(0); i < temp.size(); ++i){  // for each cutoff (first higher values)
+		for (auto&& n : temp[i]){  // for each set identifier
 			if (not s.count(n)){
 				s.insert(n);
 				nodesInOrderOfCC.push_back(n);  // nodes are ordered from belonging to a cluster of higher CC to lower
@@ -263,6 +301,8 @@ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint 
 }
 
 
+
+// generalized local CC computation for a set of nodes (instead of the direct neighboring of a given node)
 double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
 	double cardUnion(0);
 	for (auto&& n : unionC){
@@ -276,8 +316,11 @@ double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes){
 }
 
 
+
+// transfer nodes from a set to another cancelled set
 void transfer(uint tf, uint te, set<uint>& toFill, set<uint>& toEmpty, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind){
 	vector<uint> vec;
+	// remove the  cancelled set identifier from the nodes of the set to cancel: we have to compute again the new list of sets without the cancelled one
 	for (auto&& index : toEmpty){
 		vec = {};
 		for (auto && clust : vecNodes[index].cluster[ind]){
@@ -288,7 +331,7 @@ void transfer(uint tf, uint te, set<uint>& toFill, set<uint>& toEmpty, vector<No
 		vec.push_back(tf);
 		vecNodes[index].cluster[ind] = removeDuplicates(vec);
 	}
-	
+	// same operation for the nodes from the nodes in the set to keep
 	for (auto&& index : toFill){
 		vec = {};
 		for (auto && clust : vecNodes[index].cluster[ind]){
@@ -301,6 +344,7 @@ void transfer(uint tf, uint te, set<uint>& toFill, set<uint>& toEmpty, vector<No
 }
 
 
+// merge two sets: the smaller is added to the bigger
 void merge(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, uint ind){
 	if (clust1.size() > clust2.size()){  // merge in clust1
 		clusters[i1].insert(clusters[i2].begin(), clusters[i2].end());
@@ -334,6 +378,7 @@ vector<set<uint>> assignNewClusters(set<uint>& clust, vector<Node>& vecNodes, do
 }
 
 
+// when a set is split, update the nodes' clusters index values (remove the split set index)
 void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& interC){
 	set<uint> clust;
 	for (auto && elt : clusters[index]){
@@ -345,135 +390,105 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 }
 
 
-double splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
-	double cut1(0), cut2(0), cut(0);
+
+//compute each cut for each set: the number of edges that connects nodes of the set that are not in the intersection to nodes that are in the intersection
+// weights are used to compute the cuts
+void getCutsPairSets(vector<Node>& vecNodes, set<uint>& interC, double& cut1, double& cut2, set<uint>& clust1, set<uint>& clust2){
 	for (auto&& node : interC){
 		for (auto&& neigh : vecNodes[node].neighbors){
-			if (clust1.count(neigh)){
+			if (clust1.count(neigh) and (not interC.count(neigh))){
 				cut1 += vecNodes[node].neighbToWeight[vecNodes[neigh].index];
 			}
-			if (clust2.count(neigh)){
+			if (clust2.count(neigh) and (not interC.count(neigh))){
 				cut2 += vecNodes[node].neighbToWeight[vecNodes[neigh].index];
 			}
 		}
 	}
+}
 
-	
-	if (clust1.size() == interC.size()){
+
+// in case of split and ex aequo of the two cuts
+// we compute the delta CC (with and without the nodes of the intersection) for each sets, and nodes are let in the set with the smaller deltaCC
+void splitExAequo(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind, double& cut1, double& cut2, double& cut){
+	int deltaCC1(getDeltaCC(interC, clust1, vecNodes, cutoff));
+	int deltaCC2(getDeltaCC(interC, clust2, vecNodes, cutoff));
+	if (deltaCC1 <= deltaCC2){  // keep the intersection in clust1
 		transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
 		removeSplittedElements(i2, clusters, interC);
 		cut = cut2;
-	} else if (clust2.size() == interC.size()){
+	} else {  // keep the intersection in clust2
+		transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
+		removeSplittedElements(i1, clusters, interC);
+		cut = cut1;
+	}
+}
+
+
+
+// split a set and keep the node of the intersection in the other set
+// when a set is split, it can happen that it becomes disconnected
+// we check if that happens, if so we build new clusters with the new  connected subgraphs
+void splitProcedure(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind,  double& cut2, double& cut, vector<set<uint>>& newClust){
+	bool more(findArticulPoint(clust2, vecNodes, interC));  // to avoid doing too much computation, if at least one articulation point is found we do a DFS afterwards
+	transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
+	removeSplittedElements(i2, clusters, interC);
+	cut = cut2;   // todo * 2 ?
+	if (more){  // if there was an articulation point in the intersection, it is likely that the split set will be disconnected (if not we are sure it stay connected)
+		newClust = assignNewClusters(clust2, vecNodes, cutoff);  // do a DFS to find 1 or more connected components
+		if (newClust.size() > 1){  // if there are several connected components do new clusters
+			for (uint i(0); i < newClust.size(); ++i){
+				clusters.push_back(newClust[i]);
+				for (auto&& nodes: newClust[i]){
+					vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
+				}
+				transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
+			}
+			clusters[i2].clear();
+		}
+	}
+}
+
+
+
+// in case sets are not merged, one of the two sets of the pair is split gives its nodes belonging to the intersection to the other set
+// the set that has the most edges connected to nodes of the intersection keeps them, in order to minimize the cut
+double splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind){
+	double cut1(0), cut2(0), cut(0);
+	// compute each cut for each set in the pair
+	getCutsPairSets(vecNodes, interC, cut1, cut2, clust1, clust2);
+
+	if (clust1.size() == interC.size()){  // if set 1 is exactly the intersection: separate the intersection from set 2
+		transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
+		removeSplittedElements(i2, clusters, interC);
+		cut = cut2;
+	} else if (clust2.size() == interC.size()){ // if set 2 is exactly the intersection: separate the intersection from set 1
 		transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
 		removeSplittedElements(i1, clusters, interC);
 		cut = cut1;
 	} else {
 		unordered_set <uint> neighbors;
 		vector<set<uint>> newClust;
+		if (cut1 == cut2){ 
+			// in case of ex aequo choose using the delta CC
+			splitExAequo(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind, cut1, cut2, cut);
 
-		if (cut1 == cut2){
-			int deltaCC1(getDeltaCC(interC, clust1, vecNodes, cutoff));
-			int deltaCC2(getDeltaCC(interC, clust2, vecNodes, cutoff));
-			if (deltaCC1 <= deltaCC2){  // keep the intersection in clust1
-				transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
-				removeSplittedElements(i2, clusters, interC);
-				cut = cut2;
-			} else {  // keep the intersection in clust2
-				transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
-				removeSplittedElements(i1, clusters, interC);
-				cut = cut1;
-			}
 		} else if (cut1 > cut2){  // split clust 2
-			bool more(findArticulPoint(clust2, vecNodes, interC));
-			transfer(i1, i2, clust1, interC, vecNodes, clusters, ind);
-			removeSplittedElements(i2, clusters, interC);
-			cut = cut2;   // todo * 2 ?
-			if (more){
-				newClust = assignNewClusters(clust2, vecNodes, cutoff);
-				if (newClust.size() > 1){
-					for (uint i(0); i < newClust.size(); ++i){
-						clusters.push_back(newClust[i]);
-						for (auto&& nodes: newClust[i]){
-							vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
-						}
-						transfer(clusters.size() - 1, i2, newClust[i], clust2, vecNodes, clusters, ind);
-					}
-					clusters[i2].clear();
-				}
-			}
+			splitProcedure(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind, cut2, cut, newClust);
 		} else {
 			// split clust1
-			bool more(findArticulPoint(clust1, vecNodes, interC));
-			transfer(i2, i1, clust2, interC, vecNodes, clusters, ind);
-			removeSplittedElements(i1, clusters, interC);
-			cut = cut1;
-			if (more){
-				newClust = assignNewClusters(clust1, vecNodes, cutoff);
-				if (newClust.size() > 1){
-					for (uint i(0); i < newClust.size(); ++i){
-						clusters.push_back(newClust[i]);
-						for (auto&& nodes: newClust[i]){
-							vecNodes[nodes].cluster[ind].push_back(clusters.size() - 1);
-						}
-						transfer(clusters.size() - 1, i1, newClust[i], clust1, vecNodes, clusters, ind);
-					}
-					clusters[i1].clear();
-				}
-			}
+			splitProcedure(i2, i1, clust2, clust1, clusters, vecNodes, interC, cutoff, ind, cut1, cut, newClust);
 		}
 	}
 	return cut;
 }
 
 
-double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC){
-	double cut(0);
-	set<uint> clust1, clust2, unionC, interC;
-	uint i1, i2;
-	double unionCC;
-	for (uint n(0); n < vecNodes.size(); ++n){
-		if (vecNodes[n].cluster[ind].size() > 0){
-			for (auto&& c : vecNodes[n].cluster[ind]){
-				clusters[c].insert(n);  // node at index n is in cluster c
-			}
-		}
-	}
-	double sCut(0);
-	for (auto&& i : nodesInOrderOfCC){
-		
-		cut = 0;
-		if (vecNodes[i].cluster[ind].size() > 1){  // node is in several clusters
-			
-			while (vecNodes[i].cluster[ind].size() > 1){
-				i1 = vecNodes[i].cluster[ind][0];
-				i2 = vecNodes[i].cluster[ind][1];
-				clust1 = clusters[i1];
-				clust2 = clusters[i2];
-				interC = {};
-				set_intersection(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(interC, interC.begin()));
-				if (interC.size() == clust1.size() and clust1.size() == clust2.size()){  // clust1 and clust2 are the same
-					transfer(i1, i2, clust1, interC,  vecNodes, clusters, ind);
-					clusters[i2] = {};
-				} else {
-					unionC = {};
-					set_union(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(unionC, unionC.begin()));
-					unionCC = computeUnionCC(unionC, vecNodes);
-					if (unionCC >= cutoff){  // merge
-						merge(i1, i2, clust1, clust2, clusters, vecNodes, ind);
-					} else {  // split
-						cut += splitClust(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind);
-					}
-				}
-			}
-		} else {
-				sCut += cut;
-			if (ind > 0 and sCut > prevCut){
-				return sCut;
-			}
-		}
-	}
 
-	cut = 0;
+// computation of the cut
+// any edge that links a node in a cluster to another node which is not in the same cluster increases the cut
+// any node (singleton) which is is no cluster increases the cut by its number of edge
+double getCut(vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind){
+	double cut = 0;
 	vector <uint> seen(vecNodes.size(), 0);
 	for (uint i(0); i < vecNodes.size(); ++i){
 		if (vecNodes[i].cluster[ind].empty() and (not vecNodes[i].neighbors.empty())){
@@ -490,11 +505,78 @@ double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<u
 			} 
 		}
 	}
-				
-				
 	return cut;
 }
 
+
+
+// performs merges or splits according to the compared values of the cutoff/generalized CC
+// also get a temporary cut value
+void mergeOrSplitProcedures(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC, set<uint>& clust1, set<uint>&  clust2, set<uint>&  unionC, set<uint>&  interC, uint& i1, uint& i2, double& cut, uint i){
+	// comparison of clusters  by pairs: decisions are taken first for the sets associated with the higher CCs
+	double unionCC;
+	i1 = vecNodes[i].cluster[ind][0];  // sets are sorted by decreasing seed's CC value, so we compare the two first
+	i2 = vecNodes[i].cluster[ind][1];  // that are associated with the two higher CC
+	clust1 = clusters[i1];
+	clust2 = clusters[i2];
+	interC = {};
+	set_intersection(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(interC, interC.begin()));  // intersection of the two sets
+	if (interC.size() == clust1.size() and clust1.size() == clust2.size()){  // clust1 and clust2 are the same
+		transfer(i1, i2, clust1, interC,  vecNodes, clusters, ind);  // keep only one and cancel the other
+		clusters[i2] = {};
+	} else {
+		unionC = {};
+		set_union(clust1.begin(), clust1.end(), clust2.begin(), clust2.end(), inserter(unionC, unionC.begin()));  // union of the two sets
+		unionCC = computeUnionCC(unionC, vecNodes);  // get CC generalized to the union of nodes
+		if (unionCC >= cutoff){  // merge operation
+			merge(i1, i2, clust1, clust2, clusters, vecNodes, ind);
+		} else {  // split operation
+			cut += splitClust(i1, i2, clust1, clust2, clusters, vecNodes, interC, cutoff, ind);
+		}
+	}
+}
+
+
+
+// for a given cutoff, from the original set of sets of nodes creates from seeds, refine those sets (by merging/splitting strategies) to obtain clusters
+// compute the cut associated to those operations
+double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC){
+	double cut(0), sCut(0);
+	set<uint> clust1, clust2, unionC, interC;
+	uint i1, i2;
+	// compute list of current sets to be refined in vector clusters
+	for (uint n(0); n < vecNodes.size(); ++n){
+		if (vecNodes[n].cluster[ind].size() > 0){
+			for (auto&& c : vecNodes[n].cluster[ind]){
+				clusters[c].insert(n);  // node at index n is in cluster c
+			}
+		}
+	}
+
+	// for each node (by decreasing CC value)
+	for (auto&& i : nodesInOrderOfCC){
+		cut = 0;
+		if (vecNodes[i].cluster[ind].size() > 1){  // if node is in several clusters: choices to make to have only one cluster in the end
+			while (vecNodes[i].cluster[ind].size() > 1){
+				mergeOrSplitProcedures(cutoff, vecNodes, clusters, ind, prevCut, nodesInOrderOfCC, clust1, clust2, unionC, interC, i1, i2, cut, i);
+			}
+		} else {
+			sCut += cut;
+			if (ind > 0 and sCut > prevCut){
+				// if the cut is already higher than a precedant cut = we don't reach the minimal cut for this cutoff so we can stop already
+				return sCut;
+			}
+		}
+	} // when this procedure stops, each node remains in only one set which is a cluster
+	// computation of the cut
+	cut = getCut(vecNodes, clusters, ind);
+	return cut;
+}
+
+
+
+
+// compute a vector of Nodes specific for a given connected component: re-write indexes
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp){
 	uint ii(0);
 	unordered_map<uint, uint> indexReads;
@@ -535,6 +617,10 @@ bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& int
 }
 
 
+// disconnects articulations points from the total graph
+// each time an articulation point is removed (disconnected), the nb of connected comp. in the graph increases
+// it allows to fragment the graph in more connected components and isolate problematic nodes that are articulation points
+// articulation points are searched using a DFS then disconnected from the graph
 void preProcessGraph(vector<Node>& vecNodes, double cutoff=1.1){
 	Graph graph(vecNodes.size());
 	unordered_set<uint> visited;
@@ -548,7 +634,8 @@ void preProcessGraph(vector<Node>& vecNodes, double cutoff=1.1){
 	}
 	vector<uint> vec;
 	vector<bool> ap; // To store articulation points
-    graph.AP(ap);
+    graph.AP(ap); // get articulation points via DFS
+    // disconnect nodes:
     for (uint i = 0; i < vecNodes.size(); i++){
         if (ap[i] == true and vecNodes[i].CC < cutoff){
             for (auto&& j : vecNodes[i].neighbors){
@@ -608,148 +695,178 @@ double quantileCC(vector<double>&CC, uint no, uint q){
 
 
 
-int main(int argc, char** argv){
-	bool printHelp(false);
-	if (argc > 1){
-		bool approx(false), preprocessing(false), weighted(false);
-		string outFileName("final_g_clusters.txt"), fileName("");
-		uint nbThreads(2);
-		int c;
-		uint granularity(10);
 
-		while ((c = getopt (argc, argv, "f:o:c:i:pw")) != -1){
-			switch(c){
-				case 'o':
-					outFileName=optarg;
-					break;
-				case 'f':
-					fileName=optarg;
-					break;
-				case 'c':
-					nbThreads=stoi(optarg);
-					break;
-				case 'i':
-					approx = true;
-					granularity=stoi(optarg);
-					break;
-				case 'p':
-					preprocessing = true;
-					break;
-				case 'w':
-					weighted = true;
-					break;
+void parseArgs(int argc, char** argv, bool& approx, bool& preprocessing, bool& weighted, string& fileName, string& outFileName, uint& nbThreads, uint& granularity){
+	approx = false; preprocessing = false; weighted = false;
+	outFileName = "final_g_clusters.txt"; fileName = "";
+	nbThreads = 2;
+	int c;
+	granularity = 10;
+	while ((c = getopt (argc, argv, "f:o:c:i:pw")) != -1){
+		switch(c){
+			case 'o':
+				outFileName=optarg;
+				break;
+			case 'f':
+				fileName=optarg;
+				break;
+			case 'c':
+				nbThreads=stoi(optarg);
+				break;
+			case 'i':
+				approx = true;
+				granularity=stoi(optarg);
+				break;
+			case 'p':
+				preprocessing = true;
+				break;
+			case 'w':
+				weighted = true;
+				break;
+		}
+	}
+}
+
+
+void printHelpCmd(bool help){
+	if (help){
+		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -w -i 10 -p -c nb_cores)" << endl;
+		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research (10 is mandatory value)" << endl << "-p performs pre processing step" << endl << "-c gets the number of threads (default 2)" << endl;
+		cout << "-w performs weighted clustering" << endl;
+		cout << "Output written in final_g_clusters.txt by default (-o to change output name)" << endl;
+	}
+}
+
+
+// find connected components with a DFS, each is stored in vector  nodesInConnexComp
+void findConnectedComponents(vector<Node>& vecNodesGlobal, vector<set<uint>>& nodesInConnexComp){
+	unordered_set<uint> visited;
+	bool b(false);
+	for (uint n(0); n < vecNodesGlobal.size(); ++n){
+		if (not (visited.count(n))){
+			set<uint> s;
+			DFS(n, vecNodesGlobal, visited, s, b, 0);
+			nodesInConnexComp.push_back(s);
+		}
+	}
+}
+
+
+
+// computes a list of cutoffs (stored in vecCC)
+// if -i option is not set, the list of cutoff is exactly the list of CC
+// else, for connected components with a lot of different CC (more than 100 distinct values), CC values are rounded according to a certain granularity and these rounded values are cutoffs
+// then the list of cutoffs is more restrained than the original list of CC and the space to explore is smaller
+void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, uint granularity){
+	double prev(1.1), cutoffTrunc;
+	uint value;
+	if (approx){
+		prev = 1.1;
+		if (ClCo.size() > 100){
+			value = granularity;
+		} else {
+			value = 0;
+		}
+		for (auto&& cutoff: ClCo){
+			if (value != 0){
+				cutoffTrunc = trunc(cutoff * value)/value;
+			} else {
+				cutoffTrunc = cutoff;
+			}
+			if (cutoffTrunc < prev){
+				prev = cutoffTrunc;
+				vecCC.push_back(cutoffTrunc);
 			}
 		}
+	} else {
+		for (auto&& cutoff: ClCo){
+			vecCC.push_back(cutoff);
+		}
+	}
+	
+}
+
+
+int main(int argc, char** argv){
+	bool printHelp(true);
+	if (argc > 1){
+		bool approx, preprocessing, weighted;
+		string outFileName, fileName;
+		uint nbThreads, granularity;
+		// parsing command line
+		parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
 		if (not (fileName.empty())){
+			printHelp = false;
 			cout << "Command line was: " ;
 			for (int a(0);  a < argc; ++a){
 				cout << argv[a] << " ";
 			}
-			
-
 			cout << endl;
 			ifstream refFile(fileName);
 			vector<Node> vecNodesGlobal;
-			cout << "Parsing..." << endl;
+			cout << "Parsing infile..." << endl;
+			// parse similarity information from infile
 			parsingSRC(refFile, vecNodesGlobal, weighted);
 			if (preprocessing){
-				cout << "preprocessing" << endl;
+				// pre -processing by removing articulation points
+				cout << "preprocessing of the graph" << endl;
 				preProcessGraph(vecNodesGlobal);
 			}
-			unordered_set<uint> visited;
 			vector<set<uint>> nodesInConnexComp;
-			bool b(false);
-			for (uint n(0); n < vecNodesGlobal.size(); ++n){
-				if (not (visited.count(n))){
-					set<uint> s;
-					DFS(n, vecNodesGlobal, visited, s, b, 0);
-					nodesInConnexComp.push_back(s);
-				}
-			}
+			// decompose graph in connected components
+			findConnectedComponents(vecNodesGlobal, nodesInConnexComp);
 			cout << "Connected components: " << nodesInConnexComp.size() << endl;
 
 			ofstream out(outFileName);
-			mutex mm;
-
-			vector<vector<uint>> finalClusters;
 			ofstream outm("nodes_metrics.txt");
+			mutex mm;
+			vector<vector<uint>> finalClusters;
 			vector<Node> vecNodes;
-			vector<double>ClCo;
-			vector<uint> degrees;
-			vector<double>vecCC;
-			double prev(1.1), cutoffTrunc;
-			uint value;
+			vector<double>ClCo, vecCC;
+			vector<uint> degrees, nodesInOrderOfCC;
 			double minCut(0);
 			vector<set<uint>> clustersToKeep;
-			vector<uint> nodesInOrderOfCC;
-			uint ccc(0);
-			uint round(0);
+			uint ccc(0), round(0), higherDegree;
 			float lowerCC(0);
-			uint higherDegree;
+			// loop over each connected component
 			for (uint c(0); c < nodesInConnexComp.size(); ++c){
 				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
 				vecNodes = {};
+				// compute a vector of nodes for the given connected component
 				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
-
-				cout << "Pre-processing of the graph" << endl;
-				if (preprocessing){
-					preProcessGraph(vecNodes);
-				}
-
 				ClCo = {};
-				computeCCandDeg(vecNodes, ClCo, degrees);
-				lowerCC = quantileCC(ClCo, 1, 1000);
+				// compute CC and degree for each node
+				computeCCandDeg(vecNodes, ClCo, degrees, lowerCC);
+				// compute quantiles for degree distribution
 				higherDegree = quantileEdges(degrees, 999, 1000);
+				// write nodes metrics
 				for (auto&& node : vecNodes){
 					outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
 				}
-				vecCC = {};
-				if (approx){
-					prev = 1.1;
-					if (ClCo.size() > 100){
-						value = granularity;
-					} else {
-						value = 0;
-					}
-					for (auto&& cutoff: ClCo){
-						if (value != 0){
-							cutoffTrunc = trunc(cutoff * value)/value;
-						} else {
-							cutoffTrunc = cutoff;
-						}
-						if (cutoffTrunc < prev){
-							prev = cutoffTrunc;
-							vecCC.push_back(cutoffTrunc);
-						}
-					}
-				} else {
-					for (auto&& cutoff: ClCo){
-						vecCC.push_back(cutoff);
-					}
-				}
-				minCut = 0;
+				vecCC = {}; nodesInOrderOfCC = {};
+				// compute a list of cutoffs to loop over
+				computeCutoffs(approx, vecCC, ClCo,granularity);
+				minCut = 0; ccc = 0; round = 0;
 				clustersToKeep = {};
-				ccc = 0;
 				cout << "Computing pseudo cliques" << endl;
-				nodesInOrderOfCC = {};
+				// compute sets originated from seed nodes for each cutoff value
 				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
-				round = 0;
-				
 				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 				bool compute(true);
+
+				// one thread by cutoff
 				#pragma omp parallel num_threads(nbThreads)
 				{
 					#pragma omp for
 					for (ccc = 0; ccc < vecCC.size(); ++ccc){
-						double cut, prevCut;
-						double cutoff(vecCC[ccc]);
+						double cut, prevCut, cutoff(vecCC[ccc]);
 						if (ccc != 0){
-							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){
+							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
 								mm.lock();
 								compute = false;
 								mm.unlock();
 							}
-							if (cut > prevCut){
+							if (cut > prevCut){  // we store  non minimal cuts that permit to stop the computation in func computeClustersAndCut anytime an even higher cut is found
 								prevCut = cut;
 							}
 						}
@@ -758,11 +875,13 @@ int main(int argc, char** argv){
 							vector<set<uint>> clusters(vecNodesCpy.size());
 							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
 							cout << "Computing clusters" << endl;
+							// refine sets using Clustering coeffs to obtain clusters
 							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
 							mm.lock();
 							cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
 							++round;
 							mm.unlock();
+							// keep the minimal cut and associated clusters:
 							if (ccc == 0){
 								mm.lock();
 								minCut = cut;
@@ -793,6 +912,7 @@ int main(int argc, char** argv){
 						}
 					}
 				}
+				// print clusters associated to the minimal cut over all cutoff values
 				for (uint i(0); i < clustersToKeep.size(); ++i){
 					if (not clustersToKeep[i].empty()){
 						for (auto&& n : clustersToKeep[i]){
@@ -803,15 +923,7 @@ int main(int argc, char** argv){
 				}
 			}
 			cout << "Done." << endl;
-		} else {
-			printHelp = true;
 		}
-	} else {
-		printHelp = true;
 	}
-	if (printHelp){
-		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -i -p -c nb_cores)" << endl;
-		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research" << endl << "-p performs pre processing step" << endl << "-c gets the number of threads (default 2)" << endl;
-		cout << "Output written in final_g_clusters.txt" << endl;
-	}
+	printHelpCmd(printHelp);
 }

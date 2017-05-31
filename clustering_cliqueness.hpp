@@ -60,11 +60,12 @@ double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes);
 
 int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, double cutoff);
 
-void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo);
+void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>& degrees, float& lowerCC);
 
 void sortVecNodes(vector<Node>& vecNodes);
 
-void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC);
+//~ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC);
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC);
 
 double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes);
 
@@ -89,5 +90,11 @@ void cutBrigdesInConnectedComp(vector<Node>& vecNodes, uint val);
 bool findArticulPoint(set<uint>& cluster, vector<Node>& vecNodes, set<uint>& interC);
 
 void preProcessGraph(vector<Node>& vecNodes, double cutoff);
+
+void mergeOrSplitProcedures(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC, set<uint>& clust1, set<uint>&  clust2, set<uint>&  unionC, set<uint>&  interC, uint& i1, uint& i2, double& cut, uint i);
+
+uint quantileEdges(vector<uint>&degrees, uint no, uint q);
+
+double quantileCC(vector<double>&CC, uint no, uint q);
 
 #endif
