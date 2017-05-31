@@ -97,4 +97,8 @@ uint quantileEdges(vector<uint>&degrees, uint no, uint q);
 
 double quantileCC(vector<double>&CC, uint no, uint q);
 
+bool execute(int argc, char** argv);
+
+void printHelpCmd(bool help);
+
 #endif

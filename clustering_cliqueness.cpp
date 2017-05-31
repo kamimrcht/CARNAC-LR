@@ -787,143 +787,142 @@ void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, ui
 }
 
 
-int main(int argc, char** argv){
+
+bool execute(int argc, char** argv){
 	bool printHelp(true);
-	if (argc > 1){
-		bool approx, preprocessing, weighted;
-		string outFileName, fileName;
-		uint nbThreads, granularity;
-		// parsing command line
-		parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
-		if (not (fileName.empty())){
-			printHelp = false;
-			cout << "Command line was: " ;
-			for (int a(0);  a < argc; ++a){
-				cout << argv[a] << " ";
-			}
-			cout << endl;
-			ifstream refFile(fileName);
-			vector<Node> vecNodesGlobal;
-			cout << "Parsing infile..." << endl;
-			// parse similarity information from infile
-			parsingSRC(refFile, vecNodesGlobal, weighted);
-			if (preprocessing){
-				// pre -processing by removing articulation points
-				cout << "preprocessing of the graph" << endl;
-				preProcessGraph(vecNodesGlobal);
-			}
-			vector<set<uint>> nodesInConnexComp;
-			// decompose graph in connected components
-			findConnectedComponents(vecNodesGlobal, nodesInConnexComp);
-			cout << "Connected components: " << nodesInConnexComp.size() << endl;
-
-			ofstream out(outFileName);
-			ofstream outm("nodes_metrics.txt");
-			mutex mm;
-			vector<vector<uint>> finalClusters;
-			vector<Node> vecNodes;
-			vector<double>ClCo, vecCC;
-			vector<uint> degrees, nodesInOrderOfCC;
-			double minCut(0);
-			vector<set<uint>> clustersToKeep;
-			uint ccc(0), round(0), higherDegree;
-			float lowerCC(0);
-			// loop over each connected component
-			for (uint c(0); c < nodesInConnexComp.size(); ++c){
-				cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-				vecNodes = {};
-				// compute a vector of nodes for the given connected component
-				getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
-				ClCo = {};
-				// compute CC and degree for each node
-				computeCCandDeg(vecNodes, ClCo, degrees, lowerCC);
-				// compute quantiles for degree distribution
-				higherDegree = quantileEdges(degrees, 999, 1000);
-				// write nodes metrics
-				for (auto&& node : vecNodes){
-					outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
-				}
-				vecCC = {}; nodesInOrderOfCC = {};
-				// compute a list of cutoffs to loop over
-				computeCutoffs(approx, vecCC, ClCo,granularity);
-				minCut = 0; ccc = 0; round = 0;
-				clustersToKeep = {};
-				cout << "Computing pseudo cliques" << endl;
-				// compute sets originated from seed nodes for each cutoff value
-				computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
-				cout <<  vecCC.size() << " clustering coefficients to check" << endl;
-				bool compute(true);
-
-				// one thread by cutoff
-				#pragma omp parallel num_threads(nbThreads)
-				{
-					#pragma omp for
-					for (ccc = 0; ccc < vecCC.size(); ++ccc){
-						double cut, prevCut, cutoff(vecCC[ccc]);
-						if (ccc != 0){
-							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
-								mm.lock();
-								compute = false;
-								mm.unlock();
-							}
-							if (cut > prevCut){  // we store  non minimal cuts that permit to stop the computation in func computeClustersAndCut anytime an even higher cut is found
-								prevCut = cut;
-							}
-						}
-						if (compute){
-							vector<Node> vecNodesCpy = vecNodes;
-							vector<set<uint>> clusters(vecNodesCpy.size());
-							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
-							cout << "Computing clusters" << endl;
-							// refine sets using Clustering coeffs to obtain clusters
-							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
-							mm.lock();
-							cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
-							++round;
-							mm.unlock();
-							// keep the minimal cut and associated clusters:
-							if (ccc == 0){
-								mm.lock();
-								minCut = cut;
-								clustersToKeep = clusters;
-								if (not weighted){
-									if (minCut == 0 and cutoff == 1){
-										compute = false;  // clique => stop
-									}
-								}
-								mm.unlock();
-							} else {
-								if (not weighted){
-									if (cut < minCut and cut > 0){
-										mm.lock();
-										minCut = cut;
-										clustersToKeep = clusters;
-										mm.unlock();
-									}
-								} else {
-									if (cut < minCut){
-										mm.lock();
-										minCut = cut;
-										clustersToKeep = clusters;
-										mm.unlock();
-									}
-								}
-							}
-						}
-					}
-				}
-				// print clusters associated to the minimal cut over all cutoff values
-				for (uint i(0); i < clustersToKeep.size(); ++i){
-					if (not clustersToKeep[i].empty()){
-						for (auto&& n : clustersToKeep[i]){
-							out << vecNodes[n].index << " " ;
-						}
-						out << endl;
-					}
-				}
-			}
-			cout << "Done." << endl;
+	bool approx, preprocessing, weighted;
+	string outFileName, fileName;
+	uint nbThreads, granularity;
+	// parsing command line
+	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
+	if (not (fileName.empty())){
+		printHelp = false;
+		cout << "Command line was: " ;
+		for (int a(0);  a < argc; ++a){
+			cout << argv[a] << " ";
 		}
+		cout << endl;
+		ifstream refFile(fileName);
+		vector<Node> vecNodesGlobal;
+		cout << "Parsing infile..." << endl;
+		// parse similarity information from infile
+		parsingSRC(refFile, vecNodesGlobal, weighted);
+		if (preprocessing){
+			// pre -processing by removing articulation points
+			cout << "preprocessing of the graph" << endl;
+			preProcessGraph(vecNodesGlobal);
+		}
+		vector<set<uint>> nodesInConnexComp;
+		// decompose graph in connected components
+		findConnectedComponents(vecNodesGlobal, nodesInConnexComp);
+		cout << "Connected components: " << nodesInConnexComp.size() << endl;
+
+		ofstream out(outFileName);
+		ofstream outm("nodes_metrics.txt");
+		mutex mm;
+		vector<vector<uint>> finalClusters;
+		vector<Node> vecNodes;
+		vector<double>ClCo, vecCC;
+		vector<uint> degrees, nodesInOrderOfCC;
+		double minCut(0);
+		vector<set<uint>> clustersToKeep;
+		uint ccc(0), round(0), higherDegree;
+		float lowerCC(0);
+		// loop over each connected component
+		for (uint c(0); c < nodesInConnexComp.size(); ++c){
+			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
+			vecNodes = {};
+			// compute a vector of nodes for the given connected component
+			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
+			ClCo = {};
+			// compute CC and degree for each node
+			computeCCandDeg(vecNodes, ClCo, degrees, lowerCC);
+			// compute quantiles for degree distribution
+			higherDegree = quantileEdges(degrees, 999, 1000);
+			// write nodes metrics
+			for (auto&& node : vecNodes){
+				outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
+			}
+			vecCC = {}; nodesInOrderOfCC = {};
+			// compute a list of cutoffs to loop over
+			computeCutoffs(approx, vecCC, ClCo,granularity);
+			minCut = 0; ccc = 0; round = 0;
+			clustersToKeep = {};
+			cout << "Computing pseudo cliques" << endl;
+			// compute sets originated from seed nodes for each cutoff value
+			computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
+			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
+			bool compute(true);
+
+			// one thread by cutoff
+			#pragma omp parallel num_threads(nbThreads)
+			{
+				#pragma omp for
+				for (ccc = 0; ccc < vecCC.size(); ++ccc){
+					double cut, prevCut, cutoff(vecCC[ccc]);
+					if (ccc != 0){
+						if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
+							mm.lock();
+							compute = false;
+							mm.unlock();
+						}
+						if (cut > prevCut){  // we store  non minimal cuts that permit to stop the computation in func computeClustersAndCut anytime an even higher cut is found
+							prevCut = cut;
+						}
+					}
+					if (compute){
+						vector<Node> vecNodesCpy = vecNodes;
+						vector<set<uint>> clusters(vecNodesCpy.size());
+						vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
+						cout << "Computing clusters" << endl;
+						// refine sets using Clustering coeffs to obtain clusters
+						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
+						mm.lock();
+						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
+						++round;
+						mm.unlock();
+						// keep the minimal cut and associated clusters:
+						if (ccc == 0){
+							mm.lock();
+							minCut = cut;
+							clustersToKeep = clusters;
+							if (not weighted){
+								if (minCut == 0 and cutoff == 1){
+									compute = false;  // clique => stop
+								}
+							}
+							mm.unlock();
+						} else {
+							if (not weighted){
+								if (cut < minCut and cut > 0){
+									mm.lock();
+									minCut = cut;
+									clustersToKeep = clusters;
+									mm.unlock();
+								}
+							} else {
+								if (cut < minCut){
+									mm.lock();
+									minCut = cut;
+									clustersToKeep = clusters;
+									mm.unlock();
+								}
+							}
+						}
+					}
+				}
+			}
+			// print clusters associated to the minimal cut over all cutoff values
+			for (uint i(0); i < clustersToKeep.size(); ++i){
+				if (not clustersToKeep[i].empty()){
+					for (auto&& n : clustersToKeep[i]){
+						out << vecNodes[n].index << " " ;
+					}
+					out << endl;
+				}
+			}
+		}
+		cout << "Done." << endl;
 	}
-	printHelpCmd(printHelp);
+	return printHelp;
 }

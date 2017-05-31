@@ -22,10 +22,11 @@ EXEC=clustering_cliqueness
 all: $(EXEC)
 
 
-
-
-clustering_cliqueness: clustering_cliqueness.o preprocessing.o
+clustering_cliqueness: main.o clustering_cliqueness.o preprocessing.o
 	$(CC) -o $@ $^ $(LDFLAGS)
+
+main.o: main.cpp clustering_cliqueness.hpp
+	$(CC) -o $@ -c $< $(CFLAGS)
 
 clustering_cliqueness.o: clustering_cliqueness.cpp clustering_cliqueness.hpp findArticulationPoints.hpp
 	$(CC) -o $@ -c $< $(CFLAGS)

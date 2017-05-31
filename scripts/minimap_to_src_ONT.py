@@ -23,21 +23,23 @@ if (len(sys.argv) > 2):
 			line = rline.rstrip()
 			read = line.split("\t")[0].split('t')[0][:-1]
 			recruited = line.split("\t")[5].split('t')[0][:-1]
+			similar = round(round(float(line.split("\t")[9])/float(line.split("\t")[10]),3)  * 100, 3)
 			index = readToIndex[read]
 			indexRecruited = readToIndex[recruited]
 			if index in readToRecruited:
 				if index != indexRecruited:
-					readToRecruited[index].add(indexRecruited)
+					readToRecruited[index][indexRecruited] = similar
 			else:
 				if index != indexRecruited:
 					#~ print(index, indexRecruited)
-					readToRecruited.setdefault(index, set())
-					readToRecruited[index].add(indexRecruited)
+					readToRecruited.setdefault(index, dict())
+					readToRecruited[index][indexRecruited] = similar
 	out = open("minimap_src_format.txt", 'w')
 	out.write("#\n#\n#\n")
 	for read, recruited in readToRecruited.items():
 		toWrite = str(read) + ":"
-		for r in recruited:
-			toWrite += str(r) + "-0-0.0 "
+		for k,v in recruited.items():
+			#~ for k,v in recruited[r].items():
+				toWrite += str(k) + "-" + str(v) + "-0.0 "
 		toWrite += "\n"
 		out.write(toWrite)
