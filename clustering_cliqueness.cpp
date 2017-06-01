@@ -90,11 +90,9 @@ vector<string> split(const string &s, char delim){
 void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 	string listNodes;
 	// header
-	getline(refFile, listNodes);
-	getline(refFile, listNodes);
-	getline(refFile, listNodes);
+	getline(refFile, listNodes); getline(refFile, listNodes); getline(refFile, listNodes);
 	vector<uint>  neighbs;
-	vector<vector<uint>> clust;
+	vector<vector<uint>> clust, clustW;
 	vector<string> splitted1, splitted2, splitted3;
 	uint read, target;
 	unordered_map <uint, uint> seenNodes;
@@ -115,8 +113,8 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 					}
 					if (read != target){
 						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
-							clust = {}; neighbs = {}; neighbToWeight = {};
-							Node t({target, 0, 0, clust, neighbs, neighbToWeight});
+							clust = {}; clustW = {}; neighbs = {}; neighbToWeight = {};
+							Node t({target, 0, 0, clust, clustW, neighbs, neighbToWeight});
 							vecNodes.push_back({t});  // store in vecNodes
 							vecNodes.back().neighbToWeight.insert({read, weight});
 							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
@@ -132,8 +130,8 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 								vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight});
 							}
 						} else {  // new neighbor not already in the vector of nodes
-							clust = {}; neighbs = {}; neighbToWeight = {};
-							Node r({read, 0, 0, clust, neighbs, neighbToWeight});
+							clust = {}; clustW = {}; neighbs = {}; neighbToWeight = {};
+							Node r({read, 0, 0, clust, clustW, neighbs, neighbToWeight});
 							vecNodes.push_back({r});
 							uint position(vecNodes.size() - 1);
 							seenNodes.insert({read, position});
@@ -261,32 +259,46 @@ void sortVecNodes(vector<Node>& vecNodes){
 // in each vector of this vector, if the node is a seed, a number of set is stored (the same number is stored for nodes included in the set)
 // this way, at a given cutoff, a node can know if it is in different sets
 // finally we sort the nodes in decreasing order of CC
-void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC){
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, vector<uint>& nodesInOrderOfCCWeak, uint higherDegree, float lowerCC){
 	vector<uint> v;
-	vector<vector<uint>> vec(cutoffs.size());
+	vector<vector<uint>> vec(cutoffs.size()), vec2(cutoffs.size());
 	// for each node, at each cutoff value we will store a vector that sums up the number of sets the node belongs to
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
+		vecNodes[i].weakCluster = vec2;
 	}
 	uint c(0);
 	vector<unordered_set<uint>> temp(cutoffs.size());  // sets identifiers for each cutoff value
+	vector<unordered_set<uint>> tempWeak(cutoffs.size());  // sets identifiers for each cutoff value
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){  // descending cutoffs
 			unordered_set<uint> s;
+			unordered_set<uint> ss;
 			double cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
-				if (vecNodes[i].CC >= cutoff and not (vecNodes[i].degree >= higherDegree and vecNodes[i].CC <= lowerCC)){  // if the node is a seed
+				
+				if (vecNodes[i].CC >= cutoff and  (vecNodes[i].degree < higherDegree and vecNodes[i].CC > lowerCC)){  // if the node is a seed
 					vecNodes[i].cluster[c].push_back(i);  // store a set identifier for this node
 					s.insert(i);
 					for (auto&& neigh : vecNodes[i].neighbors){
 						vecNodes[neigh].cluster[c].push_back(i);  // also include direct neighbors in set
 						s.insert(neigh);
 					}
+				} else {
+					if (vecNodes[i].CC >= cutoff){
+						vecNodes[i].weakCluster[c].push_back(i);  // store a set identifier for this node
+						ss.insert(i);
+						for (auto&& neigh : vecNodes[i].neighbors){
+							vecNodes[neigh].weakCluster[c].push_back(i);  // also include direct neighbors in set
+							ss.insert(neigh);
+						}
+					}
 				}
 			}
 			temp[c] = s;
+			tempWeak[c] = ss;
 		}
 	}
 	unordered_set<uint> s;
@@ -294,7 +306,23 @@ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint 
 		for (auto&& n : temp[i]){  // for each set identifier
 			if (not s.count(n)){
 				s.insert(n);
-				nodesInOrderOfCC.push_back(n);  // nodes are ordered from belonging to a cluster of higher CC to lower
+				nodesInOrderOfCC.push_back(n);  
+			}
+		}
+	}
+	unordered_set<uint> ss;
+
+	for (uint i(0); i < tempWeak.size(); ++i){
+		if (not tempWeak[i].empty()){
+			for (auto&& n : tempWeak[i]){
+				if (not s.count(n)){
+					s.insert(n);
+					nodesInOrderOfCC.push_back(n);
+				}
+				 if (not ss.count(n)){
+					ss.insert(n);
+					nodesInOrderOfCCWeak.push_back(n);  // then add nodes that are weak cluster seeds
+				}
 			}
 		}
 	}
@@ -575,6 +603,19 @@ double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<u
 
 
 
+void addWeakClusters(vector<uint>& nodesInOrderOfCCWeak, vector<Node>& vecNodes, uint ind){
+	for (auto&& i : nodesInOrderOfCCWeak){
+		vecNodes[i].weakCluster[ind] = removeDuplicates(vecNodes[i].weakCluster[ind]);
+		if (not vecNodes[i].weakCluster.empty()){	
+			for (auto&& valClust : vecNodes[i].weakCluster[ind]){
+				vecNodes[i].cluster[ind].push_back(valClust);
+			}
+		}
+	}
+}
+
+
+
 
 // compute a vector of Nodes specific for a given connected component: re-write indexes
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp){
@@ -757,7 +798,8 @@ void findConnectedComponents(vector<Node>& vecNodesGlobal, vector<set<uint>>& no
 // if -i option is not set, the list of cutoff is exactly the list of CC
 // else, for connected components with a lot of different CC (more than 100 distinct values), CC values are rounded according to a certain granularity and these rounded values are cutoffs
 // then the list of cutoffs is more restrained than the original list of CC and the space to explore is smaller
-void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, uint granularity){
+//~ void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, uint granularity){
+void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, uint granularity, float lowerCC){
 	double prev(1.1), cutoffTrunc;
 	uint value;
 	if (approx){
@@ -768,19 +810,23 @@ void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, ui
 			value = 0;
 		}
 		for (auto&& cutoff: ClCo){
-			if (value != 0){
-				cutoffTrunc = trunc(cutoff * value)/value;
-			} else {
-				cutoffTrunc = cutoff;
-			}
-			if (cutoffTrunc < prev){
-				prev = cutoffTrunc;
-				vecCC.push_back(cutoffTrunc);
+			if (cutoff > lowerCC){
+				if (value != 0){
+					cutoffTrunc = trunc(cutoff * value)/value;
+				} else {
+					cutoffTrunc = cutoff;
+				}
+				if (cutoffTrunc < prev){
+					prev = cutoffTrunc;
+					vecCC.push_back(cutoffTrunc);
+				}
 			}
 		}
 	} else {
 		for (auto&& cutoff: ClCo){
-			vecCC.push_back(cutoff);
+			if (cutoff > lowerCC){
+				vecCC.push_back(cutoff);
+			}
 		}
 	}
 	
@@ -823,7 +869,7 @@ bool execute(int argc, char** argv){
 		vector<vector<uint>> finalClusters;
 		vector<Node> vecNodes;
 		vector<double>ClCo, vecCC;
-		vector<uint> degrees, nodesInOrderOfCC;
+		vector<uint> degrees, nodesInOrderOfCC, nodesInOrderOfCCWeak;
 		double minCut(0);
 		vector<set<uint>> clustersToKeep;
 		uint ccc(0), round(0), higherDegree;
@@ -845,15 +891,14 @@ bool execute(int argc, char** argv){
 			}
 			vecCC = {}; nodesInOrderOfCC = {};
 			// compute a list of cutoffs to loop over
-			computeCutoffs(approx, vecCC, ClCo,granularity);
+			computeCutoffs(approx, vecCC, ClCo,granularity, lowerCC);
 			minCut = 0; ccc = 0; round = 0;
 			clustersToKeep = {};
 			cout << "Computing pseudo cliques" << endl;
 			// compute sets originated from seed nodes for each cutoff value
-			computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
-			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
+			nodesInOrderOfCCWeak = {};
+			computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, nodesInOrderOfCCWeak, higherDegree, lowerCC);
 			bool compute(true);
-
 			// one thread by cutoff
 			#pragma omp parallel num_threads(nbThreads)
 			{
@@ -874,9 +919,13 @@ bool execute(int argc, char** argv){
 						vector<Node> vecNodesCpy = vecNodes;
 						vector<set<uint>> clusters(vecNodesCpy.size());
 						vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
+						vector<uint> nodesInOrderOfCCWeakCpy = nodesInOrderOfCCWeak;
 						cout << "Computing clusters" << endl;
 						// refine sets using Clustering coeffs to obtain clusters
 						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
+						if (not nodesInOrderOfCCWeakCpy.empty()){
+							addWeakClusters(nodesInOrderOfCCWeakCpy, vecNodesCpy, ccc);
+						}
 						mm.lock();
 						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
 						++round;
