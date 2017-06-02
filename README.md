@@ -1,5 +1,6 @@
 Compilation and Usage:
- g++ -std=c++11 clustering_cliqueness.cpp -o clustering_cliqueness;  ./clustering_cliqueness short_read_connector_res.txt
+make;
+./clustering_cliqueness -f infile [-i 10, -c val, -p, -o path]
 
 Results are written in:
  final_g_clusters.txt
