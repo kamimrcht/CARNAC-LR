@@ -1084,7 +1084,8 @@ bool execute(int argc, char** argv){
 								mm.unlock();
 							} else {
 								if (not weighted){
-									if (cut < minCut and cut > 0){
+									//~ if (cut < minCut and cut > 0){
+									if (cut < minCut){
 										mm.lock();
 										minCut = cut;
 										clustersToKeep = clusters;
