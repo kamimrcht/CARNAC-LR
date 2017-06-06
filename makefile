@@ -1,7 +1,7 @@
-CC=/usr/bin/g++
-#CC=g++
+#CC=/usr/bin/g++
+CC=g++
 #CC=clang++
-CFLAGS=  -Wall  -Ofast -std=c++11 -march=native -pthread -fopenmp
+CFLAGS=  -Wall  -O3 -std=c++11 -march=native -pthread -fopenmp
 LDFLAGS= -pthread -fopenmp	
 
 
