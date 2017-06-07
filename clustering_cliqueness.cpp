@@ -997,7 +997,7 @@ bool execute(int argc, char** argv){
 		// loop over each connected component
 		for (uint c(0); c < nodesInConnexComp.size(); ++c){
 			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-			if (nodesInConnexComp[c].size() > 3){
+			if (nodesInConnexComp[c].size() > 1){
 				vecNodes = {};
 				// todo: add a second pre processing phase
 				if (preprocessing){
@@ -1104,7 +1104,17 @@ bool execute(int argc, char** argv){
 					}
 				}
 			} else {
-				clustersToKeep = nodesInConnexComp[c];
+				//~ clustersToKeep = nodesInConnexComp[c];
+				//~ for (uint i(0); i < nodesInConnexComp[c].size(); ++i){
+					//~ if (not nodesInConnexComp[i].empty()){
+					cout << "her" << endl;
+						for (auto&& n : nodesInConnexComp[c]){
+							cout << n << " " << vecNodes.size() << endl;
+							out << vecNodesGlobal[n].index << " " ;
+						}
+						out << endl;
+					//~ }
+				//~ }
 			}
 			// print clusters associated to the minimal cut over all cutoff values
 			for (uint i(0); i < clustersToKeep.size(); ++i){
