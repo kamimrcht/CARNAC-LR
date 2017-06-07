@@ -32,7 +32,6 @@ struct Node{
 	uint degree;
 	double CC;
 	vector<vector<uint>> cluster;
-	vector<vector<uint>> weakCluster;
 	vector<uint> neighbors;
 	unordered_map<uint, double> neighbToWeight;
 	bool operator <(const Node&n) const
@@ -66,7 +65,9 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>&
 void sortVecNodes(vector<Node>& vecNodes);
 
 //~ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC);
+//~ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC);
 void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, vector<uint>& nodesInOrderOfCCWeak, uint higherDegree, float lowerCC);
+
 
 double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes);
 
@@ -82,7 +83,7 @@ void removeSplittedElements(uint index, vector<set<uint>>& clusters, set<uint>& 
 double splitClust(uint i1, uint i2, set<uint>& clust1, set<uint>& clust2, vector<set<uint>>& clusters,  vector<Node>& vecNodes, set<uint>& interC, uint cutoff, uint ind);
 
 //~ uint computeClustersAndCut(float cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, uint prevCut, vector<uint>& nodesInOrderOfCC);
-double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfC, bool secondPass);
+double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC);
 
 void getVecNodes(vector<Node>& vecNodes, vector<Node>& vecNodesGlobal, set<uint>& nodesInConnexComp);
 
