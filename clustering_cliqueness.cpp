@@ -150,6 +150,71 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 }
 
 
+
+void parsing(ifstream & refFile, vector<Node>& vecNodes){
+	string listNodes;
+	vector<uint>  neighbs;
+	vector<vector<uint>> clust;
+	vector<string> splitted1, splitted2, splitted3;
+	uint read, target;
+	unordered_map <uint, uint> seenNodes;
+	unordered_map <uint, double> neighbToWeight;
+	double weight(1);
+	while (not refFile.eof()){
+		getline(refFile, listNodes);
+		splitted1 = split(listNodes, ' ');
+		if (splitted1.size() > 1){
+			for (uint spl(0); spl < splitted1.size(); ++spl){
+			////~ splitted2 = split(splitted1[1], ' ');
+			target = stoi(splitted1[spl]);  // target read's index
+			for (uint spl2(0); spl2 < splitted1.size(); ++spl2){
+			////~ if (not splitted2.empty()){
+				////~ for (uint i(0); i < splitted2.size(); ++i){
+					////~ splitted3 = split(splitted2[i], '-');
+					read = stoi(splitted1[spl2]);  // recruited read
+					////~ if (weighted){
+						////~ weight = 1/ (stof(splitted3[1]));
+					////~ }
+					if (read < target){
+						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
+							clust = {};  neighbs = {}; neighbToWeight = {};
+							Node t({target, 0, 0, clust, neighbs, neighbToWeight});
+							
+							vecNodes.push_back({t});  // store in vecNodes
+							vecNodes.back().neighbToWeight.insert({read, weight});
+							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
+						}
+						if (seenNodes.count(read)){ // this neighbour is already in the vector of nodes
+							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
+							if (not vecNodes[seenNodes[target]].neighbToWeight.count(read)){
+								vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});
+							}
+							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
+							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
+							if (not vecNodes[seenNodes[read]].neighbToWeight.count(target)){
+								vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight});
+							}
+						} else {  // new neighbor not already in the vector of nodes
+							clust = {};  neighbs = {}; neighbToWeight = {};
+							Node r({read, 0, 0, clust, neighbs, neighbToWeight});
+							vecNodes.push_back({r});
+							uint position(vecNodes.size() - 1);
+							seenNodes.insert({read, position});
+							vecNodes[seenNodes[target]].neighbors.push_back(vecNodes.size() - 1);  // store read as neighbor of target
+							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
+							vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight}); 
+							vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});  
+						}
+					}
+				}
+			}
+		}   
+	}
+}
+
+
+
+
 //compute the CC of a node with its set of neighbors
 //compute the CC of a node with its set of neighbors
 double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
@@ -882,25 +947,8 @@ uint addSingletons(vector<Node>& vecNodes, vector<set<uint>>& clusters, bool& sc
 
 
 
-bool execute(int argc, char** argv){
-	bool printHelp(true);
-	bool approx, preprocessing, weighted;
-	string outFileName, fileName;
-	uint nbThreads, granularity;
-	// parsing command line
-	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
-	if (not (fileName.empty())){
-		printHelp = false;
-		cout << "Command line was: " ;
-		for (int a(0);  a < argc; ++a){
-			cout << argv[a] << " ";
-		}
-		cout << endl;
-		ifstream refFile(fileName);
-		vector<Node> vecNodesGlobal;
-		cout << "Parsing infile..." << endl;
-		// parse similarity information from infile
-		parsingSRC(refFile, vecNodesGlobal, weighted);
+void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool approx, bool weighted, string& outFileName, uint nbThreads, uint granularity){
+
 		if (preprocessing){
 			// pre -processing by removing articulation points
 			cout << "preprocessing of the graph" << endl;
@@ -1030,7 +1078,40 @@ bool execute(int argc, char** argv){
 				}
 			}
 		}
-		cout << "Done." << endl;
+}
+
+
+bool execute(int argc, char** argv){
+	bool printHelp(true);
+	bool approx, preprocessing, weighted;
+	string outFileName, fileName;
+	uint nbThreads, granularity;
+	// parsing command line
+	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
+	if (not (fileName.empty())){
+		printHelp = false;
+		cout << "Command line was: " ;
+		for (int a(0);  a < argc; ++a){
+			cout << argv[a] << " ";
+		}
+		cout << endl;
+		ifstream refFile(fileName);
+		vector<Node> vecNodesGlobal;
+		cout << "Parsing infile..." << endl;
+		// parse similarity information from infile
+		parsingSRC(refFile, vecNodesGlobal, weighted);
+		partitionFinding(vecNodesGlobal,  preprocessing,  approx, weighted, outFileName, nbThreads,  granularity);
+		cout << "Done!" << endl;
 	}
+	// test iterative
+	//~ if (not (fileName.empty())){
+		//~ vector<Node> vecNodes;
+		//~ ifstream refFile("final_g_clusters.txt");
+		//~ parsing(refFile, vecNodes);
+		//~ string finalc("final.txt");
+		//~ partitionFinding(vecNodes,  preprocessing,  approx, weighted, finalc, nbThreads,  granularity);
+		//~ cout << "Done 2." << endl;
+	//~ }
+
 	return printHelp;
 }
