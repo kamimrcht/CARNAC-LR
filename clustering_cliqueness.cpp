@@ -182,15 +182,26 @@ double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, double cutoff){
 	int deltaCC(0);
 	unordered_set<uint> clust1Without;
+	unordered_set<uint> clust1With;
+	
 	for (auto&& i : clust1){
 		if (not toRemove.count(i)){
 			clust1Without.insert(i);
 		}
+		clust1With.insert(i);
 	}
-	double CC1(getCC(clust1Without, vecNodes));
-	deltaCC = cutoff - CC1;
+	double CC0, CC1;
+	if (clust1Without.empty()){  // in this case we consider that a node alone cannot increase its CC
+		CC1 = 0;
+	} else {
+		CC1 = getCC(clust1Without, vecNodes);
+	}
+	CC0 = getCC(clust1With, vecNodes);
+	//~ deltaCC = cutoff - CC1;
+	deltaCC = CC0 - CC1;
 	return deltaCC;
 }
+
 
 
 // compute clustering coefficient and degree for each node
