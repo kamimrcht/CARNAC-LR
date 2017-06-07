@@ -1040,7 +1040,7 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 		// loop over each connected component
 		for (uint c(0); c < nodesInConnexComp.size(); ++c){
 			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
-			//~ if (nodesInConnexComp[c].size() > 1){
+			if (nodesInConnexComp[c].size() > 1 or (not vecNodesGlobal[c].neighbors.empty())){
 				vecNodes = {};
 				// todo: add a second pre processing phase
 				if (preprocessing){
@@ -1146,19 +1146,19 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 						}
 					}
 				}
-			//~ } else {
+			} else {
 				//~ clustersToKeep = nodesInConnexComp[c];
 				//~ for (uint i(0); i < nodesInConnexComp[c].size(); ++i){
 					//~ if (not nodesInConnexComp[i].empty()){
 					//~ cout << "her" << endl;
-						//~ for (auto&& n : nodesInConnexComp[c]){
+						for (auto&& n : nodesInConnexComp[c]){
 							//~ cout << n << " " << vecNodes.size() << endl;
-							//~ out << vecNodesGlobal[n].index << " " ;
-						//~ }
-						//~ out << endl;
+							out << vecNodesGlobal[n].index << " " ;
+						}
+						out << endl;
 					//~ }
 				//~ }
-			//~ }
+			}
 			// print clusters associated to the minimal cut over all cutoff values
 			for (uint i(0); i < clustersToKeep.size(); ++i){
 				if (not clustersToKeep[i].empty()){
