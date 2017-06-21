@@ -36,7 +36,15 @@ struct Node{
 	unordered_map<uint, double> neighbToWeight;
 	bool operator <(const Node&n) const
     {
-        return (degree < n.degree);
+        // return (degree < n.degree);
+		
+		
+		if (degree < n.degree) return true;
+		if (n.degree < degree) return false;
+		if (CC < n.CC) return true;
+		if (n.CC < CC) return false;
+
+		return false;
     }
 };
 
@@ -65,9 +73,7 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>&
 void sortVecNodes(vector<Node>& vecNodes);
 
 //~ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC);
-//~ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC);
-void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, vector<uint>& nodesInOrderOfCCWeak, uint higherDegree, float lowerCC);
-
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC);
 
 double computeUnionCC(set<uint>& unionC, vector<Node>& vecNodes);
 

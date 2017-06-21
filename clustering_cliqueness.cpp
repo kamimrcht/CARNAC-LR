@@ -52,6 +52,18 @@ vector<double> removeDuplicatesCC(vector<double>& vec){
 }
 
 
+// compare nodes first by degree, then by CC
+//~ bool CompareNodes(const Node& a, const Node& b) 
+//~ { 
+   //~ if (a.degree < b.degree) return true;
+   //~ if (b.degree < a.degree) return false;
+
+   //~ if (a.CC < b.CC) return true;
+   //~ if (b.CC < a.CC) return false;
+   //~ return false;
+//~ } 
+
+
 void DFS(uint n, vector<Node>& vecNodes, unordered_set<uint>& visited, set<uint>& nodesInConnexComp, bool& above, double cutoff){
 	if (not visited.count(n)){
 		if (vecNodes[n].CC >= cutoff){
@@ -150,79 +162,10 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 }
 
 
-
-void parsing(ifstream & refFile, vector<Node>& vecNodes){
-	string listNodes;
-	vector<uint>  neighbs;
-	vector<vector<uint>> clust;
-	vector<string> splitted1, splitted2, splitted3;
-	uint read, target;
-	unordered_map <uint, uint> seenNodes;
-	unordered_map <uint, double> neighbToWeight;
-	double weight(1);
-	while (not refFile.eof()){
-		getline(refFile, listNodes);
-		splitted1 = split(listNodes, ' ');
-		if (splitted1.size() > 1){
-			for (uint spl(0); spl < splitted1.size(); ++spl){
-			////~ splitted2 = split(splitted1[1], ' ');
-			target = stoi(splitted1[spl]);  // target read's index
-			for (uint spl2(0); spl2 < splitted1.size(); ++spl2){
-			////~ if (not splitted2.empty()){
-				////~ for (uint i(0); i < splitted2.size(); ++i){
-					////~ splitted3 = split(splitted2[i], '-');
-					read = stoi(splitted1[spl2]);  // recruited read
-					////~ if (weighted){
-						////~ weight = 1/ (stof(splitted3[1]));
-					////~ }
-					if (read < target){
-						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
-							clust = {};  neighbs = {}; neighbToWeight = {};
-							Node t({target, 0, 0, clust, neighbs, neighbToWeight});
-							
-							vecNodes.push_back({t});  // store in vecNodes
-							vecNodes.back().neighbToWeight.insert({read, weight});
-							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
-						}
-						if (seenNodes.count(read)){ // this neighbour is already in the vector of nodes
-							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
-							if (not vecNodes[seenNodes[target]].neighbToWeight.count(read)){
-								vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});
-							}
-							vecNodes[seenNodes[target]].neighbors.push_back(seenNodes[read]);  // add read as neighbor of target
-							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
-							if (not vecNodes[seenNodes[read]].neighbToWeight.count(target)){
-								vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight});
-							}
-						} else {  // new neighbor not already in the vector of nodes
-							clust = {};  neighbs = {}; neighbToWeight = {};
-							Node r({read, 0, 0, clust, neighbs, neighbToWeight});
-							vecNodes.push_back({r});
-							uint position(vecNodes.size() - 1);
-							seenNodes.insert({read, position});
-							vecNodes[seenNodes[target]].neighbors.push_back(vecNodes.size() - 1);  // store read as neighbor of target
-							vecNodes[seenNodes[read]].neighbors.push_back(seenNodes[target]);  // add target as neighbor of read
-							vecNodes[seenNodes[read]].neighbToWeight.insert({target, weight}); 
-							vecNodes[seenNodes[target]].neighbToWeight.insert({read, weight});  
-						}
-					}
-				}
-			}
-		}   
-	}
-}
-
-
-
-
-//compute the CC of a node with its set of neighbors
 //compute the CC of a node with its set of neighbors
 double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 	double pairs(0), clusteringCoef(0);
 	uint totalPairs;
-	if (neighbors.empty()){
-		return 1;
-	}
 	for (auto&& neigh : neighbors){  // for each neighbor of the node
 		for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
 			if (neighbors.count(neigh2)){  // if a neighbor of a neighbor is also a neighbor of the current node = pair of connected neighbors
@@ -238,40 +181,30 @@ double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
 }
 
 
-
-
 // the CC values are compared before and after the removal of a sub set of nodes
 // if the value is > 0: the removal impacted negatively the cliqueness
 // if the value == 0:  no change
 // if the value < 0: the cliqueness is better without the nodes
+
+// todo: change = we should take the cluster's CC instead of the cutoff
 int getDeltaCC(set<uint>& toRemove, set<uint>& clust1, vector<Node>& vecNodes, double cutoff){
 	int deltaCC(0);
 	unordered_set<uint> clust1Without;
-	unordered_set<uint> clust1With;
-	
 	for (auto&& i : clust1){
 		if (not toRemove.count(i)){
 			clust1Without.insert(i);
 		}
-		clust1With.insert(i);
 	}
-	double CC0, CC1;
-	if (clust1Without.empty()){  // in this case we consider that a node alone cannot increase its CC
-		CC1 = 0;
-	} else {
-		CC1 = getCC(clust1Without, vecNodes);
-	}
-	CC0 = getCC(clust1With, vecNodes);
-	//~ deltaCC = cutoff - CC1;
-	deltaCC = CC0 - CC1;
+	double CC1(getCC(clust1Without, vecNodes));
+	deltaCC = cutoff - CC1;
 	return deltaCC;
 }
 
 
-
 // compute clustering coefficient and degree for each node
-// CC will be stored in ClCo and degrees in vector degrees
+// CC will be stored in ClCo and degrees in vector degrees, and sorted from higher to lower (with no duplicates)
 // the CC are stored by decreasing values in the vector as we will start with nodes of highest CC later in the code
+// the quantile values are computed before removing the duplicates of CC
 // the graph is not oriented so the degree of a node is the nb of edges going through this node
 void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>& degrees, float& lowerCC){
 	double clusteringCoef;
@@ -308,68 +241,49 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>&
 	reverse(ClCo.begin(), ClCo.end());
 }
 
-
-void sortVecNodes(vector<Node>& vecNodes){
-	unordered_map <uint, uint> indexReadsBef;
-	for (uint i(0); i < vecNodes.size(); ++i){
-		indexReadsBef.insert({vecNodes[i].index, i});
-	}
-	sort(vecNodes.begin(), vecNodes.end());
-	reverse(vecNodes.begin(), vecNodes.end());
+// sort nodes by decreasing degrees
+// update vecNodes (neighbours...) as index of nodes may have changed
+void sortVecNodes(vector<Node>& vecNodes, vector<uint>& nodesInOrderOfCC){
+	vector<Node> vecNodesCpy(vecNodes);
+	sort(vecNodesCpy.begin(), vecNodesCpy.end());  // based on degrees then CC
+	reverse(vecNodesCpy.begin(), vecNodesCpy.end());
 	unordered_map <uint, uint> indexReadsAf;
-	for (uint i(0); i < vecNodes.size(); ++i){
-		indexReadsAf.insert({indexReadsBef[vecNodes[i].index], i});  // former and new index in vecNodes
-	}
-	
-	vector<uint> vec;
-	
-	for (uint i(0); i < vecNodes.size(); ++i){
-		vec = {};
-		for (auto&& n : vecNodes[i].neighbors){
-			vec.push_back(indexReadsAf[n]);
-		}
-		vecNodes[i].neighbors = vec;
+	for (uint i(0); i < vecNodesCpy.size(); ++i){
+		nodesInOrderOfCC.push_back(i);
 	}
 }
 
 
 
-
 // compute sets around seed nodes
 // seed nodes are those whose CC is above the current cutoff
-// they gather their direct neighbors in sets that are quasi cliques
+// they gather their direct neighbors in sets that are expected quasi cliques
 // nodes which degree is above the last quantile and CC is below the last quantile (even if it is above the current cutoff) are not seeds
 // the function is multi threaded with one thread by cutoff
 // each Nodes stores a vector of vector (.cluster) )of the size of the length of the list of cutoffs
 // in each vector of this vector, if the node is a seed, a number of set is stored (the same number is stored for nodes included in the set)
 // this way, at a given cutoff, a node can know if it is in different sets
-// finally we sort the nodes in decreasing order of CC
 
-// we also ensure that a cutoff is associated with a covering of the graph, if its not the case the cutoff won't appear in the cutoffs vector after this function call
-void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, vector<uint>& nodesInOrderOfCCWeak, uint higherDegree, float lowerCC){
-	vector<double> validCutoffs;
+
+//todo : change this
+// finally we sort the nodes in decreasing order of CC
+void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint nbThreads, vector<uint>& nodesInOrderOfCC, uint higherDegree, float lowerCC){
 	vector<uint> v;
-	vector<vector<uint>> vec(cutoffs.size()), vec2(cutoffs.size());
+	vector<vector<uint>> vec(cutoffs.size());
 	// for each node, at each cutoff value we will store a vector that sums up the number of sets the node belongs to
 	for (uint i(0); i < vecNodes.size(); ++i){
 		vecNodes[i].cluster = vec;
-		//~ vecNodes[i].weakCluster = vec2;
 	}
 	uint c(0);
 	vector<unordered_set<uint>> temp(cutoffs.size());  // sets identifiers for each cutoff value
-	//~ vector<unordered_set<uint>> tempWeak(cutoffs.size());  // sets identifiers for each cutoff value
-	mutex mut;
 	#pragma omp parallel num_threads(nbThreads)
 	{
 		#pragma omp for
 		for (c = 0; c < cutoffs.size(); ++c){  // descending cutoffs
 			unordered_set<uint> s;
-			//~ unordered_set<uint> ss;
 			double cutoff = cutoffs[c];
 			for (uint i(0); i < vecNodes.size(); ++i){
-				
-				//~ if (vecNodes[i].CC >= cutoff and  (vecNodes[i].degree < higherDegree and vecNodes[i].CC > lowerCC)){  // if the node is a seed
-				if (vecNodes[i].CC >= cutoff){  // if the node is a seed
+				if (vecNodes[i].CC >= cutoff and not (vecNodes[i].degree >= higherDegree and vecNodes[i].CC <= lowerCC)){  // if the node is a seed
 					vecNodes[i].cluster[c].push_back(i);  // store a set identifier for this node
 					s.insert(i);
 					for (auto&& neigh : vecNodes[i].neighbors){
@@ -377,53 +291,16 @@ void computePseudoCliques(vector<double>& cutoffs, vector<Node>& vecNodes, uint 
 						s.insert(neigh);
 					}
 				}
-				//~ else {
-					//~ if (vecNodes[i].CC >= cutoff){
-						//~ vecNodes[i].weakCluster[c].push_back(i);  // store a set identifier for this node
-						//~ ss.insert(i);
-						//~ for (auto&& neigh : vecNodes[i].neighbors){
-							//~ vecNodes[neigh].weakCluster[c].push_back(i);  // also include direct neighbors in set
-							//~ ss.insert(neigh);
-						//~ }
-					//~ }
-				//~ }
 			}
 			temp[c] = s;
-			//~ tempWeak[c] = ss;
-			if (vecNodes.size() == s.size()){
-				mut.lock();
-				validCutoffs.push_back(cutoff);
-				mut.unlock();
-			}
 		}
 	}
-	unordered_set<uint> s;
-	for (uint i(0); i < temp.size(); ++i){  // for each cutoff (first higher values)
-		for (auto&& n : temp[i]){  // for each set identifier
-			if (not s.count(n)){
-				s.insert(n);
-				nodesInOrderOfCC.push_back(n);  
-			}
-		}
-	}
-	//~ cutoffs = validCutoffs;
-
-	
-
-	
-	//~ unordered_set<uint> ss;
-
-	//~ for (uint i(0); i < tempWeak.size(); ++i){
-		//~ if (not tempWeak[i].empty()){
-			//~ for (auto&& n : tempWeak[i]){
-				//~ if (not s.count(n)){
-					//~ s.insert(n);
-					//~ nodesInOrderOfCC.push_back(n);
-				//~ }
-				 //~ if (not ss.count(n)){
-					//~ ss.insert(n);
-					//~ nodesInOrderOfCCWeak.push_back(n);  // then add nodes that are weak cluster seeds
-				//~ }
+	//~ unordered_set<uint> s;
+	//~ for (uint i(0); i < temp.size(); ++i){  // for each cutoff (first higher values)
+		//~ for (auto&& n : temp[i]){  // for each set identifier
+			//~ if (not s.count(n)){
+				//~ s.insert(n);
+				//~ nodesInOrderOfCC.push_back(n);  // nodes are ordered from belonging to a cluster of higher CC to lower
 			//~ }
 		//~ }
 	//~ }
@@ -641,7 +518,7 @@ double getCut(vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind){
 
 // performs merges or splits according to the compared values of the cutoff/generalized CC
 // also get a temporary cut value
-void mergeOrSplitProcedures(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC, set<uint>& clust1, set<uint>&  clust2, set<uint>&  unionC, set<uint>&  interC, uint& i1, uint& i2, double& cut, uint i, bool secondPass){
+void mergeOrSplitProcedures(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC, set<uint>& clust1, set<uint>&  clust2, set<uint>&  unionC, set<uint>&  interC, uint& i1, uint& i2, double& cut, uint i){
 	// comparison of clusters  by pairs: decisions are taken first for the sets associated with the higher CCs
 	double unionCC;
 	i1 = vecNodes[i].cluster[ind][0];  // sets are sorted by decreasing seed's CC value, so we compare the two first
@@ -669,7 +546,7 @@ void mergeOrSplitProcedures(double cutoff, vector<Node>& vecNodes, vector<set<ui
 
 // for a given cutoff, from the original set of sets of nodes creates from seeds, refine those sets (by merging/splitting strategies) to obtain clusters
 // compute the cut associated to those operations
-double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC, bool secondPass){
+double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<uint>>& clusters, uint ind, double prevCut, vector<uint>& nodesInOrderOfCC){
 	double cut(0), sCut(0);
 	set<uint> clust1, clust2, unionC, interC;
 	uint i1, i2;
@@ -687,7 +564,7 @@ double computeClustersAndCut(double cutoff, vector<Node>& vecNodes, vector<set<u
 		cut = 0;
 		if (vecNodes[i].cluster[ind].size() > 1){  // if node is in several clusters: choices to make to have only one cluster in the end
 			while (vecNodes[i].cluster[ind].size() > 1){
-				mergeOrSplitProcedures(cutoff, vecNodes, clusters, ind, prevCut, nodesInOrderOfCC, clust1, clust2, unionC, interC, i1, i2, cut, i, secondPass);
+				mergeOrSplitProcedures(cutoff, vecNodes, clusters, ind, prevCut, nodesInOrderOfCC, clust1, clust2, unionC, interC, i1, i2, cut, i);
 			}
 		} else {
 			sCut += cut;
@@ -917,38 +794,25 @@ void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, ui
 
 
 
-uint addSingletons(vector<Node>& vecNodes, vector<set<uint>>& clusters, bool& scdpass, uint ind){
-	bool add(false);
-	uint index(clusters.size());
-	for (uint i(0); i < vecNodes.size(); ++i){
-		if (vecNodes[i].cluster[ind].empty()){
-			add = true;
-			++index;
-			vecNodes[i].cluster[ind].push_back(index-1);
+bool execute(int argc, char** argv){
+	bool printHelp(true);
+	bool approx, preprocessing, weighted;
+	string outFileName, fileName;
+	uint nbThreads, granularity;
+	// parsing command line
+	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
+	if (not (fileName.empty())){
+		printHelp = false;
+		cout << "Command line was: " ;
+		for (int a(0);  a < argc; ++a){
+			cout << argv[a] << " ";
 		}
-		else{
-			if (clusters[vecNodes[i].cluster[ind].back()].size() == 1){
-				add = true;
-				
-			}
-		}
-		if (add){
-			scdpass = true;
-			for (auto&& n : vecNodes[i].neighbors){
-				if (not vecNodes[n].cluster[ind].empty()){
-					
-					vecNodes[i].cluster[ind].push_back(vecNodes[n].cluster[ind].back());
-				}
-			}
-		}
-	}
-	return index;
-}
-
-
-
-void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool approx, bool weighted, string& outFileName, uint nbThreads, uint granularity){
-
+		cout << endl;
+		ifstream refFile(fileName);
+		vector<Node> vecNodesGlobal;
+		cout << "Parsing infile..." << endl;
+		// parse similarity information from infile
+		parsingSRC(refFile, vecNodesGlobal, weighted);
 		if (preprocessing){
 			// pre -processing by removing articulation points
 			cout << "preprocessing of the graph" << endl;
@@ -965,7 +829,7 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 		vector<vector<uint>> finalClusters;
 		vector<Node> vecNodes;
 		vector<double>ClCo, vecCC;
-		vector<uint> degrees, nodesInOrderOfCC, nodesInOrderOfCCWeak;
+		vector<uint> degrees, nodesInOrderOfCC;
 		double minCut(0);
 		vector<set<uint>> clustersToKeep;
 		uint ccc(0), round(0), higherDegree;
@@ -974,27 +838,31 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 		for (uint c(0); c < nodesInConnexComp.size(); ++c){
 			cout << "Connected Component " << c << " size " << nodesInConnexComp[c].size() << endl;
 			vecNodes = {};
+			
 			// compute a vector of nodes for the given connected component
 			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
+			if (preprocessing){
+				// pre -processing by removing articulation points
+				preProcessGraph(vecNodes);
+			}
 			ClCo = {};
 			// compute CC and degree for each node
-			computeCCandDeg(vecNodes, ClCo, degrees, lowerCC);
+			computeCCandDeg(vecNodes, ClCo, degrees, lowerCC); // sorted clustering coefficients
 			// compute quantiles for degree distribution
 			higherDegree = quantileEdges(degrees, 999, 1000);
 			// write nodes metrics
 			for (auto&& node : vecNodes){
 				outm << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
 			}
-			vecCC = {}; nodesInOrderOfCC = {}; nodesInOrderOfCCWeak = {};
+			vecCC = {}; nodesInOrderOfCC = {};
 			// compute a list of cutoffs to loop over
-			computeCutoffs(approx, vecCC, ClCo,granularity);
+			computeCutoffs(approx, vecCC, ClCo,granularity); // todo: lower bound
 			minCut = 0; ccc = 0; round = 0;
 			clustersToKeep = {};
 			cout << "Computing pseudo cliques" << endl;
 			// compute sets originated from seed nodes for each cutoff value
-			//~ computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);
-			computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, nodesInOrderOfCCWeak, higherDegree, lowerCC);
-
+			computePseudoCliques(vecCC, vecNodes, nbThreads, nodesInOrderOfCC, higherDegree, lowerCC);  // todo :  check if we realise a partition
+			sortVecNodes(vecNodes, nodesInOrderOfCC);
 			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 			bool compute(true);
 
@@ -1016,23 +884,11 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 					}
 					if (compute){
 						vector<Node> vecNodesCpy = vecNodes;
-						bool scdPass(false);
 						vector<set<uint>> clusters(vecNodesCpy.size());
 						vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
 						cout << "Computing clusters" << endl;
 						// refine sets using Clustering coeffs to obtain clusters
-						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy, false);
-						///// uncomment for a second pass that tries to include singletons //////
-						uint newNbClusters(addSingletons(vecNodesCpy, clusters, scdPass,  ccc));
-						vector<set<uint>> clusters2(newNbClusters);
-						if (scdPass){
-							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters2, ccc, prevCut, nodesInOrderOfCCcpy, true);
-							scdPass = false;
-						}
-						/////////////////////////////////////////////////////////////////////////
-						//~ if (not nodesInOrderOfCCWeakCpy.empty()){
-							//~ addWeakClusters(nodesInOrderOfCCWeakCpy, vecNodesCpy, ccc);
-						//~ }
+						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
 						mm.lock();
 						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
 						++round;
@@ -1078,40 +934,7 @@ void partitionFinding(vector<Node>& vecNodesGlobal, bool preprocessing, bool app
 				}
 			}
 		}
-}
-
-
-bool execute(int argc, char** argv){
-	bool printHelp(true);
-	bool approx, preprocessing, weighted;
-	string outFileName, fileName;
-	uint nbThreads, granularity;
-	// parsing command line
-	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
-	if (not (fileName.empty())){
-		printHelp = false;
-		cout << "Command line was: " ;
-		for (int a(0);  a < argc; ++a){
-			cout << argv[a] << " ";
-		}
-		cout << endl;
-		ifstream refFile(fileName);
-		vector<Node> vecNodesGlobal;
-		cout << "Parsing infile..." << endl;
-		// parse similarity information from infile
-		parsingSRC(refFile, vecNodesGlobal, weighted);
-		partitionFinding(vecNodesGlobal,  preprocessing,  approx, weighted, outFileName, nbThreads,  granularity);
-		cout << "Done!" << endl;
+		cout << "Done." << endl;
 	}
-	// test iterative
-	//~ if (not (fileName.empty())){
-		//~ vector<Node> vecNodes;
-		//~ ifstream refFile("final_g_clusters.txt");
-		//~ parsing(refFile, vecNodes);
-		//~ string finalc("final.txt");
-		//~ partitionFinding(vecNodes,  preprocessing,  approx, weighted, finalc, nbThreads,  granularity);
-		//~ cout << "Done 2." << endl;
-	//~ }
-
 	return printHelp;
 }
