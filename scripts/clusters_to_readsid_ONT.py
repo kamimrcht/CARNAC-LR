@@ -5,6 +5,10 @@ import os
 import shlex, subprocess
 
 
+
+##### after clusters are computed, get corresponding fasta
+### for the moment works only for one cluster
+
 def get_read(sequencefile,offset):
 	sequencefile.seek(offset)
 	read=""
@@ -22,7 +26,7 @@ def get_read(sequencefile,offset):
 	read+=sequencefile.readline()#include quality
 	return read
 
-def index_bank_offsets(bank_file_name, namesToOffset):
+def index_bank_offsets(bank_file_name, namesToOffset, numberToName):
 	read_offsets= []
 
 	if "gz" in bank_file_name:
@@ -42,7 +46,7 @@ def index_bank_offsets(bank_file_name, namesToOffset):
 	if line[0]=='@': linesperread=4 # fastq
 	
 	sequencefile.seek(0)
-	# t=0
+	t=0
 	while True:
 		offset=sequencefile.tell()
 		#~ print(offset)
@@ -51,7 +55,9 @@ def index_bank_offsets(bank_file_name, namesToOffset):
 		#~ print(index, offset)
 		
 		if not line: break
-		# t+=1
+		numberToName[t] = index
+		t+=1
+		
 		read_offsets.append(offset)
 		namesToOffset[index] = len(read_offsets) - 1
 		for i in range(linesperread-1): line=sequencefile.readline()
@@ -65,27 +71,30 @@ if len(sys.argv) > 2:
 	clustersFile = open(clustersFileName, 'r')
 	readsFile = open(readsFileName, 'r')
 	namesToOffset = dict()
+	numberToName = dict()
 	# indexing read file
-	reads_offsets = index_bank_offsets(readsFileName, namesToOffset)
+	reads_offsets = index_bank_offsets(readsFileName, namesToOffset, numberToName)
+	# getting reads from clusters, 1 file per cluster
 	
-	#~ i = 0
+	i = 0
 	out = open("reads_cluster2fasta.fa", 'w')
+	#~ out = open("reads_cluster2fasta.fa", 'w')
 	#~ out2 = open("clusters.truth", 'w')
-	for line in clustersFile:  # 1 line = 1 read and its cluster
-		info = line.rstrip().split(' ')
-		if len(info) > 1:  # a read could be classified in a cluster
-			readName =  info[0]
-			read = "_".join(readName.rstrip().split('_')[:2])[0:] + "_"
-			#~ if len(readsList) > 2 and len(readsList) < 350:
-				#~ toW = ""
-			#~ for read in readsList:
-					#~ toW += str(i) + " "
-					#~ print("*", read, namesToOffset[read])
-					#~ print ()
-					#~ print(reads_offsets[namesToOffset[read]])
-			out.write(get_read(readsFile, reads_offsets[namesToOffset[read]]))
-					#~ i += 1
-					#~ out.write(get_read(readsFile, reads_offsets[int(read)]))
+	#~ out2 = open("clusters.truth", 'w')
+	for line in clustersFile:  # 1 line = 1 cluster
+		readsList = line.rstrip().split(' ')
+		
+		if len(readsList) > 2 and len(readsList) < 350:
+			toW = ""
+			for read in readsList:
+				toW += str(i) + " "
+				#~ print("*", read)
+				#~ print("*", read, namesToOffset[read])
+				#~ print ()
+				#~ print(reads_offsets[namesToOffset[read]])
+				out.write(get_read(readsFile, reads_offsets[namesToOffset[numberToName[int(read)]]]))
+				i += 1
+				#~ out.write(get_read(readsFile, reads_offsets[int(read)]))
 			#~ out2.write(toW + '\n')
 	out.close()
 	#~ out2.close()
