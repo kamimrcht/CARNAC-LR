@@ -17,12 +17,12 @@ endif
 
 
 
-EXEC=clustering_cliqueness
+EXEC=CARNAC
 
 all: $(EXEC)
 
 
-clustering_cliqueness: main.o clustering_cliqueness.o preprocessing.o
+CARNAC: main.o clustering_cliqueness.o preprocessing.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 main.o: main.cpp clustering_cliqueness.hpp

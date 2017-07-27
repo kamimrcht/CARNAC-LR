@@ -1,17 +1,30 @@
-Compilation and Usage:
-make;
-./clustering_cliqueness -f infile [-i 10, -c val, -p, -o path]
+CARNAC (Clustering coefficient-based Acquisition of RNA Communities)
+====================================================================
 
-Results are written in:
- final_g_clusters.txt
+
+Compilation and Usage:
+----------------------
+	make;
+
+* Warning:
+For MacOS users (clang version < ), the flag -fopenmp must be removed from Makefile before the compilation. In this configuration CARNAC cannot be run with several threads.
+
+
+
+* Usage :
+	./CARNAC -f input_file (-o output_file -t nb_cores)
+	* -f is mandatory
+	* -t gets the number of threads (default 2)
+	* Output is written in final_g_clusters.txt by default (-o to change output name)
+./CARNAC will output the options
+
 
 Test:
-./clustering_cliqueness test/short_read_connector_res.txt
+-----
+./CARNAC -f test/test.input
 The expected result is the same than in test/final_g_clusters_to_obtain.txt
 
-The executable also provides a file for graph visualization (nodes_metrics.txt).
-Small graphs clustering can be seen (with removed edges during the clustering in red); by doing:
-cd scripts
-python print_graphs_cliqueness.py ../test/short_read_connector_res.txt ../test/two_clusters.fasta ../test/clusters.list ../nodes_metrics.txt ../final_g_clusters.txt
-A .png file will be generated in the scripts directory.
 
+Contact:
+--------
+camille.marchet@irisa.fr

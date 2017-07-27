@@ -742,7 +742,7 @@ void parseArgs(int argc, char** argv, bool& approx, bool& preprocessing, bool& w
 			case 'f':
 				fileName=optarg;
 				break;
-			case 'c':
+			case 't':
 				nbThreads=stoi(optarg);
 				break;
 			case 'i':
@@ -762,9 +762,8 @@ void parseArgs(int argc, char** argv, bool& approx, bool& preprocessing, bool& w
 
 void printHelpCmd(bool help){
 	if (help){
-		cout << "Usage : ./clustering_cliqueness -f input_file (-o output_file -w -i 10 -p -c nb_cores)" << endl;
-		cout << "-f is mandatory"  << endl << "-i performs inexact and speeder research (10 is mandatory value)" << endl << "-p performs pre processing step" << endl << "-c gets the number of threads (default 2)" << endl;
-		cout << "-w performs weighted clustering" << endl;
+		cout << "Usage : ./CARNAC -f input_file (-o output_file -t nb_cores)" << endl;
+		cout << "-f is mandatory"  << endl <<  "-t gets the number of threads (default 2)" << endl;
 		cout << "Output written in final_g_clusters.txt by default (-o to change output name)" << endl;
 	}
 }
@@ -827,6 +826,7 @@ bool execute(int argc, char** argv){
 	uint nbThreads, granularity;
 	// parsing command line
 	parseArgs(argc, argv, approx, preprocessing, weighted, fileName, outFileName, nbThreads, granularity);
+	preprocessing = true; approx = true; weighted = false; granularity = 10;
 	if (not (fileName.empty())){
 		printHelp = false;
 		cout << "Command line was: " ;
