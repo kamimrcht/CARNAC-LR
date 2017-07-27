@@ -19,7 +19,9 @@ For MacOS users (clang version < ), the flag -fopenmp must be removed from Makef
 	* -f is mandatory
 	* -t gets the number of threads (default 2)
 	* Output is written in final_g_clusters.txt by default (-o to change output name)
-./CARNAC will output the options
+	
+	./CARNAC
+to output the options
 
 
 Test:
