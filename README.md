@@ -5,6 +5,10 @@ CARNAC (Clustering coefficient-based Acquisition of RNA Communities)
 
 	git clone https://github.com/kamimrcht/CARNAC.git
 
+# Requirements
+* C++11 and GCC version from 4.9 / CLANG from 3.9
+* Python3 for scripts
+
 # Compilation and Usage:
 
 	cd CARNAC;
@@ -40,12 +44,12 @@ to output the options
 # I/O:
 
 ## Input format:
-* Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC input format using ./scripts/
+* Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC input format using ./scripts/paf_to_CARNAC.py. The fastq/a file (also .gz) used for the run is also mandatory.
 * CARNAC can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
 
 Example with example_file.paf:
 
-	python3 ./scripts/paf_to_CARNAC.py example_file.paf input_CARNAC.txt
+	python3 ./scripts/paf_to_CARNAC.py example_file.paf reads.fa input_CARNAC.txt
 	./CARNAC -f input_CARNAC.txt
 
 ## Output format:

@@ -2,7 +2,7 @@
 CC=g++
 #CC=clang++
 CFLAGS=  -Wall  -O3 -std=c++11 -march=native -pthread -fopenmp
-LDFLAGS= -pthread -fopenmp	
+LDFLAGS= -pthread -fopenmp
 
 
 ifeq ($(gprof),1)
