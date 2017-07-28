@@ -38,13 +38,16 @@ to output the options
 	
 	
 # I/O:
-* Input format:
-* Output format:
-reads are attributed indices from 0 to #reads-1 in order of appearance in input file.
+
+## Input format:
+
+## Output format:
+
+Reads are attributed indices from 0 to #reads-1 in order of appearance in input file.
 The output is a .txt file with one line per cluster, with the indices of its read members separated by spaces.
 For instance:
-0 1 2 3
-4 5
+	0 1 2 3
+	4 5
 The first four reads are in a cluster, the two last reads are in a second cluster.
 
 
