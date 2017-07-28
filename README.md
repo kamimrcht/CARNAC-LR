@@ -10,25 +10,26 @@ CARNAC (Clustering coefficient-based Acquisition of RNA Communities)
 	cd CARNAC;
 	make;
 
-Warning:
---------
+## Warning:
+
 For MacOS users (clang version < ), the flag -fopenmp must be removed from Makefile before the compilation. In this configuration CARNAC cannot be run with several threads.
 
 
 
-Usage:
------
+## Usage:
+
 
 	./CARNAC -f input_file (-o output_file -t nb_cores)
 
 
-Test:
------
+## Test:
+
 	./CARNAC -f test/test.input
 The expected result is the same than in test/final_g_clusters_to_obtain.txt
 
 
 # Options:
+
 	./CARNAC
 to output the options
 * -f is mandatory
