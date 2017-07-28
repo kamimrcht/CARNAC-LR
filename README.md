@@ -34,15 +34,19 @@ The expected result is the same than in test/final_g_clusters_to_obtain.txt
 to output the options
 * -f is mandatory
 * -t gets the number of threads (default 2)
-* -s take SRC output file as input
 * Output is written in final_g_clusters.txt by default (-o to change output name)
 	
 	
 # I/O:
 
 ## Input format:
-* CARNAC takes as input Minimap output format (see https://github.com/lh3/minimap/blob/master/minimap.1)
-* It can also read Short Read COnnector Linker (see https://github.com/GATB/short_read_connector) output with option -s
+* Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC input format using ./scripts/
+* CARNAC can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
+
+Example with example_file.paf:
+
+	python3 ./scripts/paf_to_CARNAC.py example_file.paf input_CARNAC.txt
+	./CARNAC -f input_CARNAC.txt
 
 ## Output format:
 
