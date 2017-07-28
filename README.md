@@ -1,10 +1,11 @@
 CARNAC (Clustering coefficient-based Acquisition of RNA Communities)
 ====================================================================
 
-#Get CARNAC:
+# Get CARNAC:
+
 	git clone https://github.com/kamimrcht/CARNAC.git
 
-#Compilation and Usage:
+# Compilation and Usage:
 
 	cd CARNAC;
 	make;
@@ -27,7 +28,7 @@ Test:
 The expected result is the same than in test/final_g_clusters_to_obtain.txt
 
 
-#Options:
+# Options:
 	./CARNAC
 to output the options
 * -f is mandatory
@@ -35,7 +36,7 @@ to output the options
 * Output is written in final_g_clusters.txt by default (-o to change output name)
 	
 	
-#I/O:
+# I/O:
 * Input format:
 * Output format:
 reads are attributed indices from 0 to #reads-1 in order of appearance in input file.
@@ -46,9 +47,6 @@ For instance:
 The first four reads are in a cluster, the two last reads are in a second cluster.
 
 
+# Contact:
 
-
-
-#Contact:
---------
 camille.marchet@irisa.fr
