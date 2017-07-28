@@ -47,17 +47,18 @@ to output the options
 * Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC input format using ./scripts/paf_to_CARNAC.py. The fastq/a file (also .gz) used for the run is also mandatory.
 * CARNAC can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
 
-Example with example_file.paf:
+Example with example_file.paf and reads.fa:
 
 	python3 ./scripts/paf_to_CARNAC.py example_file.paf reads.fa input_CARNAC.txt
-	./CARNAC -f input_CARNAC.txt
+	./CARNAC -f input_CARNAC.txt -o output_CARNAC.txt
 
 ## Output format:
 
 Reads are attributed indices from 0 to #reads-1 in order of appearance in input file.
 The output is a .txt file with one line per cluster, with the indices of its read members separated by spaces.
-For instance with 6 reads in the input:
+For instance with 6 reads in the input in the previous example:
 
+	less output_CARNAC.txt
 	0 1 2 3
 	4 5
 
