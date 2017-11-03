@@ -1,4 +1,4 @@
-CARNAC (Clustering coefficient-based Acquisition of RNA Communities)
+CARNAC-LR (Clustering coefficient-based Acquisition of RNA Communities in Long Reads)
 ====================================================================
 
 # Get CARNAC:
@@ -23,18 +23,18 @@ For MacOS users (clang version < ), the flag -fopenmp must be removed from Makef
 ## Usage:
 
 
-	./CARNAC -f input_file (-o output_file -t nb_cores)
+	./CARNAC-LR -f input_file (-o output_file -t nb_cores)
 
 
 ## Test:
 
-	./CARNAC -f test/test.input
+	./CARNAC-LR -f test/test.input
 The expected result is the same than in test/final_g_clusters_to_obtain.txt
 
 
 # Options:
 
-	./CARNAC
+	./CARNAC-LR
 to output the options
 * -f is mandatory
 * -t gets the number of threads (default 2)
@@ -44,13 +44,13 @@ to output the options
 # I/O:
 
 ## Input format:
-* Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC input format using ./scripts/paf_to_CARNAC.py. The fastq/a file (also .gz) used for the run is also mandatory.
-* CARNAC can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
+* Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC-LR input format using ./scripts/paf_to_CARNAC.py. The fastq/a file (also .gz) used for the run is also mandatory.
+* CARNAC-LR can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
 
 Example with example_file.paf and reads.fa:
 
 	python3 ./scripts/paf_to_CARNAC.py example_file.paf reads.fa input_CARNAC.txt
-	./CARNAC -f input_CARNAC.txt -o output_CARNAC.txt
+	./CARNAC-lR -f input_CARNAC.txt -o output_CARNAC.txt
 
 ## Output format:
 
