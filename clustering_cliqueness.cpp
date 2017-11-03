@@ -840,16 +840,15 @@ bool execute(int argc, char** argv){
 		// parse similarity information from infile
 		parsingSRC(refFile, vecNodesGlobal, weighted);
 		//////// for tests only ////////
-		ofstream outmpre("nodes_metrics_before_preproc.txt");
-		vector<double> ClCoTmp;
-		vector<uint> degreesTmp;
-		float f(0);
-		computeCCandDeg(vecNodesGlobal, ClCoTmp, degreesTmp, f);
-		for (auto&& node : vecNodesGlobal){
-				outmpre << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
-		}
-		ofstream outmpost("clusters_metrics.txt");
-
+		//~ ofstream outmpre("nodes_metrics_before_preproc.txt");
+		//~ vector<double> ClCoTmp;
+		//~ vector<uint> degreesTmp;
+		//~ float f(0);
+		//~ computeCCandDeg(vecNodesGlobal, ClCoTmp, degreesTmp, f);
+		//~ for (auto&& node : vecNodesGlobal){
+				//~ outmpre << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
+		//~ }
+		//~ ofstream outmpost("clusters_metrics.txt");
 		//////// end ////////
 		if (preprocessing){
 			// pre -processing by removing articulation points
@@ -961,18 +960,18 @@ bool execute(int argc, char** argv){
 				}
 			}
 			//////// for tests only ////////
-			double clcoCluster(0);
+			//~ double clcoCluster(0);
 			//////// end //////// 
 			// print clusters associated to the minimal cut over all cutoff values
 			for (uint i(0); i < clustersToKeep.size(); ++i){
 				if (not clustersToKeep[i].empty()){
 					//////// for tests only ////////
-					if (clustersToKeep[i].size() > 2){
-						clcoCluster = computeUnionCC(clustersToKeep[i], vecNodes);
-						outmpost << i << " " << clcoCluster << endl;
-					} else {
-						outmpost << i << " " << 1 << endl;
-					}
+					//~ if (clustersToKeep[i].size() > 2){
+						//~ clcoCluster = computeUnionCC(clustersToKeep[i], vecNodes);
+						//~ outmpost << i << " " << clcoCluster << endl;
+					//~ } else {
+						//~ outmpost << i << " " << 1 << endl;
+					//~ }
 					//////// end //////// 
 					for (auto&& n : clustersToKeep[i]){
 						out << vecNodes[n].index << " " ;
