@@ -26,10 +26,10 @@ For MacOS users (clang version < ), the flag -fopenmp must be removed from Makef
 	./CARNAC-LR -f input_file (-o output_file -t nb_cores)
 
 
-## Test:
+## Quick test:
 
 	./CARNAC-LR -f test/test.input
-The expected result is the same than in test/final_g_clusters_to_obtain.txt
+The result clusters should be the same than in test/final_g_clusters_to_obtain.txt
 
 
 # Options:
@@ -63,6 +63,10 @@ For instance with 6 reads in the input in the previous example:
 	4 5
 
 The first four reads are in one cluster, the two last reads are in a second cluster.
+
+* Transform clusters file to separated Fasta files:
+	python3 CARNAC_to_fasta.py <CARNAC_cluters.txt> <original_read_file.fa> [/path/to/write/files] [cluster_min_size]
+Mandatory arguments are the output of CARNAC followed by the read file. A path can be given to write the fasta files of each cluster, and a minimum size of the cluster to be written can be set.
 
 
 # Contact:
