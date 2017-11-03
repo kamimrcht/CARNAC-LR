@@ -154,7 +154,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 					if (read != target){
 						if (not seenNodes.count(target)){ // new node not already in the vector of nodes
 							clust = {}; neighbs = {}; neighbToWeight = {};
-							Node t({target, 0, 0, clust, neighbs, neighbToWeight});
+							Node t({target, 0, 1, clust, neighbs, neighbToWeight});
 							vecNodes.push_back({t});  // store in vecNodes
 							vecNodes.back().neighbToWeight.insert({read, weight});
 							seenNodes.insert({target, vecNodes.size() - 1}); // remember this node has been pushed index -> place in the vector
@@ -171,7 +171,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 							}
 						} else {  // new neighbor not already in the vector of nodes
 							clust = {}; neighbs = {}; neighbToWeight = {};
-							Node r({read, 0, 0, clust, neighbs, neighbToWeight});
+							Node r({read, 0, 1, clust, neighbs, neighbToWeight});
 							vecNodes.push_back({r});
 							uint position(vecNodes.size() - 1);
 							seenNodes.insert({read, position});
@@ -190,7 +190,7 @@ void parsingSRC(ifstream & refFile, vector<Node>& vecNodes, bool weighted){
 
 //compute the CC of a node with its set of neighbors
 double getCC(unordered_set<uint>& neighbors, vector<Node>& vecNodes){
-	double pairs(0), clusteringCoef(0);
+	double pairs(0), clusteringCoef(1);
 	uint totalPairs;
 	for (auto&& neigh : neighbors){  // for each neighbor of the node
 		for (auto&& neigh2 : vecNodes[neigh].neighbors){ // for each neighbor of a neighbor
@@ -253,7 +253,7 @@ void computeCCandDeg(vector<Node>& vecNodes, vector<double>& ClCo, vector<uint>&
 				ClCo.push_back(clusteringCoef);
 			}
 		} else {
-			ClCo.push_back(0);
+			ClCo.push_back(1);
 		}
 	}
 
@@ -734,7 +734,7 @@ void parseArgs(int argc, char** argv, bool& approx, bool& preprocessing, bool& w
 	nbThreads = 2;
 	int c;
 	granularity = 10;
-	while ((c = getopt (argc, argv, "f:o:c:i:pw")) != -1){
+	while ((c = getopt (argc, argv, "f:o:t:i:pw")) != -1){
 		switch(c){
 			case 'o':
 				outFileName=optarg;
@@ -800,7 +800,7 @@ void computeCutoffs(bool approx, vector<double>& vecCC, vector<double>& ClCo, ui
 		}
 		for (auto&& cutoff: ClCo){
 			if (value != 0){
-				cutoffTrunc = trunc(cutoff * value)/value;
+				cutoffTrunc = ceil(cutoff * value)/value;
 			} else {
 				cutoffTrunc = cutoff;
 			}
@@ -839,6 +839,18 @@ bool execute(int argc, char** argv){
 		cout << "Parsing infile..." << endl;
 		// parse similarity information from infile
 		parsingSRC(refFile, vecNodesGlobal, weighted);
+		//////// for tests only ////////
+		ofstream outmpre("nodes_metrics_before_preproc.txt");
+		vector<double> ClCoTmp;
+		vector<uint> degreesTmp;
+		float f(0);
+		computeCCandDeg(vecNodesGlobal, ClCoTmp, degreesTmp, f);
+		for (auto&& node : vecNodesGlobal){
+				outmpre << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
+		}
+		ofstream outmpost("clusters_metrics.txt");
+
+		//////// end ////////
 		if (preprocessing){
 			// pre -processing by removing articulation points
 			cout << "preprocessing of the graph" << endl;
@@ -848,7 +860,6 @@ bool execute(int argc, char** argv){
 		// decompose graph in connected components
 		findConnectedComponents(vecNodesGlobal, nodesInConnexComp);
 		cout << "Connected components: " << nodesInConnexComp.size() << endl;
-
 		ofstream out(outFileName);
 		ofstream outm("nodes_metrics.txt");
 		mutex mm;
@@ -882,7 +893,7 @@ bool execute(int argc, char** argv){
 			}
 			vecCC = {}; nodesInOrderOfCC = {};
 			// compute a list of cutoffs to loop over
-			computeCutoffs(approx, vecCC, ClCo,granularity); // todo: lower bound
+			computeCutoffs(approx, vecCC, ClCo,granularity);
 			minCut = 0; ccc = 0; round = 0;
 			clustersToKeep = {};
 			cout << "Computing pseudo cliques" << endl;
@@ -891,7 +902,6 @@ bool execute(int argc, char** argv){
 			sortVecNodes(vecNodes, nodesInOrderOfCC);
 			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 			bool compute(true);
-
 			// one thread by cutoff
 			#pragma omp parallel num_threads(nbThreads)
 			{
@@ -950,9 +960,20 @@ bool execute(int argc, char** argv){
 					}
 				}
 			}
+			//////// for tests only ////////
+			double clcoCluster(0);
+			//////// end //////// 
 			// print clusters associated to the minimal cut over all cutoff values
 			for (uint i(0); i < clustersToKeep.size(); ++i){
 				if (not clustersToKeep[i].empty()){
+					//////// for tests only ////////
+					if (clustersToKeep[i].size() > 2){
+						clcoCluster = computeUnionCC(clustersToKeep[i], vecNodes);
+						outmpost << i << " " << clcoCluster << endl;
+					} else {
+						outmpost << i << " " << 1 << endl;
+					}
+					//////// end //////// 
 					for (auto&& n : clustersToKeep[i]){
 						out << vecNodes[n].index << " " ;
 					}
