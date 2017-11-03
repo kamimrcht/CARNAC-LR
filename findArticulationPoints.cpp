@@ -26,155 +26,210 @@
 #include <iostream>
 #include <list>
 #include <vector>
+#include <algorithm>
 #include <set>
+#include <unordered_set>
 #include "findArticulationPoints.hpp"
 
 
 using namespace std;
- 
+
 // A class that represents an undirected graph of reads
 //~ class Graph
 //~ {
 
 //~ public:
-    //~ int nbNodes;  
-    //~ list<uint> *edges;    
-    //~ void APUtil(uint v, bool visited[], uint disc[], uint low[], 
+    //~ int nbNodes;
+    //~ list<uint> *edges;
+    //~ void APUtil(uint v, bool visited[], uint disc[], uint low[],
                 //~ uint parent[], bool ap[]);
 
     //~ Graph(uint nbNodes);   // Constructor
     //~ void addEdge(uint v, uint w);   // function to add an edge to graph
     //~ void AP(bool* ap);    // get articulation points
 //~ };
- 
+
 Graph::Graph(uint nbNodes){
     this->nbNodes = nbNodes;
-    edges = new list<int>[nbNodes];
+    edges = new vector<int>[nbNodes];
 }
- 
+
 void Graph::addEdge(int v, int w)
 {
     edges[v].push_back(w);
-    edges[w].push_back(v);  
+    edges[w].push_back(v);
 }
 
 Graph::~Graph(){
 	delete [] edges;
 }
- 
-// A recursive function that find articulation points using DFS traversal
-// u --> The vertex to be visited next
-// visited[] --> keeps tract of visited vertices
-// disc[] --> Stores discovery times of visited vertices
-// parent[] --> Stores parent vertices in DFS tree
-// ap[] --> Store articulation points
-//~ void Graph::APUtil(uint u, bool visited[], uint disc[], uint low[], uint parent[], bool ap[]){
-void Graph::APUtil(int u, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap){
-	
-    // A static variable is used for simplicity, we can avoid use of static
-    // variable by passing a pointer.
+
+//~ // A recursive function that find articulation points using DFS traversal
+//~ // u --> The vertex to be visited next
+//~ // visited[] --> keeps tract of visited vertices
+//~ // disc[] --> Stores discovery times of visited vertices
+//~ // parent[] --> Stores parent vertices in DFS tree
+//~ // ap[] --> Store articulation points
+
+void Graph::APUtil(int U, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap){
+	vector<int> children(ap.size(),0);
+	vector<pair<int,int>> mem;
+	mem.push_back({U,0});
     static int time = 0;
- 
-    // Count of children in DFS Tree
-    int children = 0;
- 
-    // Mark the current node as visited
-    visited[u] = true;
- 
-    // Initialize discovery time and low value
-    disc[u] = low[u] = ++time;
- 
-    // Go through all vertices adjacent to this
-    list<int>::iterator i;
-    for (i = edges[u].begin(); i != edges[u].end(); ++i)
-    {
-        int v = *i;  // v is current adjacent of u
- 
-        // If v is not visited yet, then make it a child of u
-        // in DFS tree and recur for it
-        if (!visited[v])
-        {
-            children++;
-            parent[v] = u;
-            APUtil(v, visited, disc, low, parent, ap);
- 
-            // Check if the subtree rooted with v has a connection to
-            // one of the ancestors of u
-            low[u]  = min(low[u], low[v]);
- 
-            // u is an articulation point in following cases
- 
-            // (1) u is root of DFS tree and has two or more chilren.
-            if (parent[u] == -1 && children > 1)
+	while(not mem.empty()){
+		pair<int,int> balls(mem[mem.size()-1]);
+		int u=balls.first;
+		mem.pop_back();
+		if(balls.second>=0){
+			if(not visited[u]){
+				visited[u] = true;
+				disc[u] = low[u] = ++time;
+			}
+			int i=balls.second;
+			if( edges[u].empty()){
+				continue;
+			}
+			int v =  edges[u][i];  // v is current adjacent of u
+			if((uint)i+1<edges[u].size()){
+				mem.push_back({u,i+1});
+			}
+			if (not visited[v]){
+				children[u]++;
+				parent[v] = u;
+
+				mem.push_back({u,-v-1});
+				mem.push_back({v,0});
+
+			}else if (v != parent[u]){// Update low value of u for parent function calls.
+				low[u]  = min(low[u], disc[v]);
+			}
+		}else{
+			int v=-(balls.second+1);
+			low[u]  = min(low[u], low[v]);
+            if (parent[u] == -1 && children[u]>1)
                ap[u] = true;
- 
-            // (2) If u is not root and low value of one of its child is more
-            // than discovery value of u.
             if (parent[u] != -1 && low[v] >= disc[u])
                ap[u] = true;
-        }
- 
-        // Update low value of u for parent function calls.
-        else if (v != parent[u])
-            low[u]  = min(low[u], disc[v]);
-    }
-}
-
-
-bool Graph::APUtilBool(int u, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap, set<uint>& interC){
-	bool found(false);
-    // A static variable is used for simplicity, we can avoid use of static
-    // variable by passing a pointer.
-    static int time = 0;
- 
-    // Count of children in DFS Tree
-    int children = 0;
- 
-    // Mark the current node as visited
-    visited[u] = true;
- 
-    // Initialize discovery time and low value
-    disc[u] = low[u] = ++time;
- 
-    // Go through all vertices adjacent to this
-    list<int>::iterator i;
-    for (i = edges[u].begin(); i != edges[u].end(); ++i)
-    {
-        int v = *i;  // v is current adjacent of u
- 
-        // If v is not visited yet, then make it a child of u
-        // in DFS tree and recur for it
-        if (!visited[v])
-        {
-            children++;
-            parent[v] = u;
-            APUtilBool(v, visited, disc, low, parent, ap, interC);
- 
-            // Check if the subtree rooted with v has a connection to
-            // one of the ancestors of u
-            low[u]  = min(low[u], low[v]);
- 
-            // u is an articulation point in following cases
- 
-            // (1) u is root of DFS tree and has two or more chilren.
-            if (parent[u] == -1 && children > 1)
-               ap[u] = true;
- 
-            // (2) If u is not root and low value of one of its child is more
-            // than discovery value of u.
-            if (parent[u] != -1 && low[v] >= disc[u])
-               ap[u] = true;
-        }
-		if (ap[u] and interC.count((uint)u)){
-			return true;
 		}
-        // Update low value of u for parent function calls.
-        else if (v != parent[u])
-            low[u]  = min(low[u], disc[v]);
-    }
-    return found;
+	}
 }
- 
+
+
+
+//~ void Graph::APUtil(int u, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap){
+    //~ static int time = 0;
+    //~ int children = 0;
+    //~ visited[u] = true;
+    //~ disc[u] = low[u] = ++time;
+    //~ for (int i = 0; i != edges[u].size(); ++i){
+		//~ int v =  edges[u][i]; // v is current adjacent of u
+        //~ if (!visited[v])
+        //~ {
+            //~ children++;
+            //~ parent[v] = u;
+            //~ APUtil(v, visited, disc, low, parent, ap);
+            //~ low[u]  = min(low[u], low[v]);
+            //~ if (parent[u] == -1 && children > 1)
+               //~ ap[u] = true;
+            //~ if (parent[u] != -1 && low[v] >= disc[u])
+               //~ ap[u] = true;
+        //~ }
+        //~ else if (v != parent[u])
+            //~ low[u]  = min(low[u], disc[v]);
+    //~ }
+//~ }
+
+
+//~ bool Graph::APUtilBool(int u, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap, set<uint>& interC){
+	//~ bool found(false);
+    //~ static int time = 0;
+    //~ int children = 0;
+    //~ visited[u] = true;
+    //~ disc[u] = low[u] = ++time;
+    //~ for (uint i = 0; i < edges[u].size(); ++i){
+		//~ int v =  edges[u][i];
+        //~ if (!visited[v])
+        //~ {
+            //~ children++;
+            //~ parent[v] = u;
+            //~ APUtilBool(v, visited, disc, low, parent, ap, interC);
+            //~ low[u]  = min(low[u], low[v]);
+            //~ if (parent[u] == -1 && children > 1)
+               //~ ap[u] = true;
+            //~ if (parent[u] != -1 && low[v] >= disc[u])
+               //~ ap[u] = true;
+        //~ }else if (v != parent[u]){
+            //~ low[u]  = min(low[u], disc[v]);
+		//~ }
+		//~ if (ap[u] and interC.count((uint)u)){
+			//~ return true;
+		//~ }
+
+    //~ }
+    //~ return found;
+//~ }
+
+
+bool Graph::APUtilBool(int U, bool visited[], int disc[], int low[], int parent[], vector<bool>& ap, set<uint>& interC){
+	vector<int> children(ap.size(),0);
+	vector<pair<int,int>> mem;
+	mem.push_back({U,0});
+    static int time = 0;
+	while(not mem.empty()){
+		pair<int,int> balls(mem[mem.size()-1]);
+		int u=balls.first;
+		mem.pop_back();
+		if(balls.second>=0){
+			if(not visited[u]){
+				visited[u] = true;
+				disc[u] = low[u] = ++time;
+			}
+			int i=balls.second;
+			if( edges[u].empty()){
+				continue;
+			}
+			int v =  edges[u][i];  // v is current adjacent of u
+			if((uint)i+1<edges[u].size()){
+				mem.push_back({u,i+1});
+			}
+			if (not visited[v]){
+				children[u]++;
+				parent[v] = u;
+
+				mem.push_back({u,-v-1});
+				mem.push_back({v,0});
+
+			}else{
+				if (v != parent[u]){// Update low value of u for parent function calls.
+					low[u]  = min(low[u], disc[v]);
+				}
+				if (ap[u] and interC.count((uint)u)){
+					return true;
+				}
+			}
+
+
+		}else{
+			int v=-(balls.second+1);
+			low[u]  = min(low[u], low[v]);
+            if (parent[u] == -1 && children[u]>1)
+               ap[u] = true;
+            if (parent[u] != -1 && low[v] >= disc[u])
+               ap[u] = true;
+
+            if (ap[u] and interC.count((uint)u)){
+				return true;
+			}
+			if (v != parent[u]){// Update low value of u for parent function calls.
+				low[u]  = min(low[u], disc[v]);
+			}
+
+		}
+	}
+	return false;
+}
+
+
 // The function to do DFS traversal. It uses recursive function APUtil()
 //~ void Graph::AP(bool* ap)
 void Graph::AP(vector<bool>& ap){
@@ -192,18 +247,20 @@ void Graph::AP(vector<bool>& ap){
         ap.push_back(false);
         //~ ap[i] = false;
     }
- 
+
     // Call the recursive helper function to find articulation points
     // in DFS tree rooted with vertex 'i'
     for (uint i = 0; i < (uint)nbNodes; i++)
-        if (visited[i] == false)
+        if (visited[i] == false){
+			//~ cout<<"go"<<endl;
             APUtil(i, visited, disc, low, parent, ap);
+		}
     delete [] visited;
     delete [] disc;
     delete [] low;
     delete [] parent;
 }
- 
+
 bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
 	bool found(false);
     // Mark all the vertices as not visited
@@ -220,7 +277,7 @@ bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
         ap.push_back(false);
         //~ ap[i] = false;
     }
- 
+
     // Call the recursive helper function to find articulation points
     // in DFS tree rooted with vertex 'i'
     for (uint i = 0; i < (uint)nbNodes; i++){
@@ -241,6 +298,3 @@ bool Graph::APBool(vector<bool>& ap,  set<uint>& interC){
     delete [] parent;
     return found;
 }
- 
-
-
