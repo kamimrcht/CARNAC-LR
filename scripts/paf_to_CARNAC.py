@@ -32,16 +32,13 @@ def index_bank_offsets(bank_file_name, namesToOffset):
 	while True:
 		offset=sequencefile.tell()
 		line=sequencefile.readline()
-		index = line.rstrip()[1:] 
+		index = line.rstrip()[1:].split(" ")[0] # minimap splits the name if it contains a space
 		if not line: break
 		read_offsets.append(offset)
-		
 		namesToOffset[index] = len(read_offsets) - 1
 		for i in range(linesperread-1): line=sequencefile.readline()
 	sequencefile.close()
 	return read_offsets
-
-
 
 
 if (len(sys.argv) > 3):
@@ -63,6 +60,7 @@ if (len(sys.argv) > 3):
 					readToRecruited.setdefault(index, set())
 					readToRecruited[index].add(indexRecruited)
 	out = open(sys.argv[3], 'w')
+	out.write("#\n#\n#\n")
 	for read, recruited in readToRecruited.items():
 		toWrite = str(read) + ":"
 		for r in recruited:
