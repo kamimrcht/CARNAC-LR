@@ -63,8 +63,7 @@ For instance with 6 reads in the input in the previous example:
 	4 5
 
 The first four reads are in one cluster, the two last reads are in a second cluster.
-
-* Transform clusters file to separated Fasta files:
+Transform clusters file to separated Fasta files:
 
 
 	python3 CARNAC_to_fasta.py <CARNAC_cluters.txt> <original_read_file.fa> [/path/to/write/files] [cluster_min_size]
