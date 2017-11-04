@@ -877,10 +877,10 @@ bool execute(int argc, char** argv){
 			
 			// compute a vector of nodes for the given connected component
 			getVecNodes(vecNodes, vecNodesGlobal, nodesInConnexComp[c]);
-			if (preprocessing){
-				// pre -processing by removing articulation points
-				preProcessGraph(vecNodes);
-			}
+			//~ if (preprocessing){ //REMOVED 0311
+				//~ // pre -processing by removing articulation points
+				//~ preProcessGraph(vecNodes);
+			//~ }
 			ClCo = {};
 			// compute CC and degree for each node
 			computeCCandDeg(vecNodes, ClCo, degrees, lowerCC); // sorted clustering coefficients
@@ -902,62 +902,80 @@ bool execute(int argc, char** argv){
 			cout <<  vecCC.size() << " clustering coefficients to check" << endl;
 			bool compute(true);
 			// one thread by cutoff
-			#pragma omp parallel num_threads(nbThreads)
-			{
-				#pragma omp for
-				for (ccc = 0; ccc < vecCC.size(); ++ccc){
-					double cut, prevCut, cutoff(vecCC[ccc]);
-					if (ccc != 0){
-						if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
-							mm.lock();
-							compute = false;
-							mm.unlock();
-						}
-						if (cut > prevCut){  // we store  non minimal cuts that permit to stop the computation in func computeClustersAndCut anytime an even higher cut is found
-							prevCut = cut;
-						}
-					}
-					if (compute){
-						vector<Node> vecNodesCpy = vecNodes;
-						vector<set<uint>> clusters(vecNodesCpy.size());
-						vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
-						cout << "Computing clusters" << endl;
-						// refine sets using Clustering coeffs to obtain clusters
-						cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
-						mm.lock();
-						cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
-						++round;
-						mm.unlock();
-						// keep the minimal cut and associated clusters:
-						if (ccc == 0){
-							mm.lock();
-							minCut = cut;
-							clustersToKeep = clusters;
-							if (not weighted){
-								if (minCut == 0 and cutoff == 1){
-									compute = false;  // clique => stop
-								}
+			if (nodesInConnexComp[c].size() > 2 ){
+				#pragma omp parallel num_threads(nbThreads)
+				{
+					#pragma omp for
+					for (ccc = 0; ccc < vecCC.size(); ++ccc){
+						double cut, prevCut, cutoff(vecCC[ccc]);
+						if (ccc != 0){
+							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
+								mm.lock();
+								compute = false;
+								mm.unlock();
 							}
+							if (cut > prevCut){  // we store  non minimal cuts that permit to stop the computation in func computeClustersAndCut anytime an even higher cut is found
+								prevCut = cut;
+							}
+						}
+						if (compute){
+							vector<Node> vecNodesCpy = vecNodes;
+							vector<set<uint>> clusters(vecNodesCpy.size());
+							vector<uint> nodesInOrderOfCCcpy = nodesInOrderOfCC;
+							cout << "Computing clusters" << endl;
+							// refine sets using Clustering coeffs to obtain clusters
+							cut = computeClustersAndCut(cutoff, vecNodesCpy, clusters, ccc, prevCut, nodesInOrderOfCCcpy);
+							mm.lock();
+							cout << round + 1 << "/" << vecCC.size() << " cutoff " << cutoff << " cut " << cut << endl;
+							++round;
 							mm.unlock();
-						} else {
-							if (not weighted){
-								if (cut < minCut and cut > 0){
-									mm.lock();
-									minCut = cut;
-									clustersToKeep = clusters;
-									mm.unlock();
+							// keep the minimal cut and associated clusters:
+							if (ccc == 0){
+								mm.lock();
+								minCut = cut;
+								clustersToKeep = clusters;
+								if (not weighted){
+									//~ if (minCut == 0 and cutoff == 1){
+									if (minCut == 0){
+										compute = false;  
+									}
 								}
+								mm.unlock();
 							} else {
-								if (cut < minCut){
-									mm.lock();
-									minCut = cut;
-									clustersToKeep = clusters;
-									mm.unlock();
+								if (not weighted){
+									//~ if (cut < minCut and cut > 0){
+									if (cut < minCut){
+										mm.lock();
+										minCut = cut;
+										clustersToKeep = clusters;
+										mm.unlock();
+										if (cut == 0){  // we will not reach a lower cut
+											mm.lock();
+											compute = false;
+											mm.unlock();
+										}
+									}
+								} else {
+									if (cut < minCut){
+										mm.lock();
+										minCut = cut;
+										clustersToKeep = clusters;
+										mm.unlock();
+									}
 								}
 							}
 						}
 					}
 				}
+			}
+			else { // connected components of size <= 2
+				vector<set<uint>> clusters(vecNodes.size());
+				for (uint n(0); n < vecNodes.size(); ++n){
+					for (auto&& c : vecNodes[n].cluster[ccc]){
+						clusters[c].insert(n);  // node at index n is in cluster c
+					}
+				}		
+				clustersToKeep = clusters;
 			}
 			//////// for tests only ////////
 			//~ double clcoCluster(0);
