@@ -66,7 +66,9 @@ The first four reads are in one cluster, the two last reads are in a second clus
 
 * Transform clusters file to separated Fasta files:
 
+
 	python3 CARNAC_to_fasta.py <CARNAC_cluters.txt> <original_read_file.fa> [/path/to/write/files] [cluster_min_size]
+
 Mandatory arguments are the output of CARNAC followed by the read file. A path can be given to write the fasta files of each cluster, and a minimum size of the cluster to be written can be set.
 
 
