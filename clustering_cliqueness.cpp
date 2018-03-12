@@ -990,11 +990,20 @@ bool execute(int argc, char** argv){
 					//~ } else {
 						//~ outmpost << i << " " << 1 << endl;
 					//~ }
-					//////// end //////// 
-					for (auto&& n : clustersToKeep[i]){
-						out << vecNodes[n].index << " " ;
+					//////// end ////////
+					if (i > 0 ){
+						if  (clustersToKeep[i] !=  clustersToKeep[i-1]){
+							for (auto&& n : clustersToKeep[i]){
+								out << vecNodes[n].index << " " ;
+							}
+							out << endl;
+						}
+					} else {
+						for (auto&& n : clustersToKeep[i]){
+							out << vecNodes[n].index << " " ;
+						}
+						out << endl;
 					}
-					out << endl;
 				}
 			}
 		}
