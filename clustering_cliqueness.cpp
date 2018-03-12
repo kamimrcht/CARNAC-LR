@@ -848,7 +848,8 @@ bool execute(int argc, char** argv){
 		//~ for (auto&& node : vecNodesGlobal){
 				//~ outmpre << node.index << " " << node.CC << " " << node.neighbors.size() << endl;
 		//~ }
-		//~ ofstream outmpost("clusters_metrics.txt");
+		ofstream outmpost("clusters_metrics.txt");
+		outmpost << "clco size threshold mincut" << endl;
 		//////// end ////////
 		if (preprocessing){
 			// pre -processing by removing articulation points
@@ -866,7 +867,7 @@ bool execute(int argc, char** argv){
 		vector<Node> vecNodes;
 		vector<double>ClCo, vecCC;
 		vector<uint> degrees, nodesInOrderOfCC;
-		double minCut(0);
+		double minCut(0),  cccToKeep(1);
 		vector<set<uint>> clustersToKeep;
 		uint ccc(0), round(0), higherDegree;
 		float lowerCC(0);
@@ -911,6 +912,7 @@ bool execute(int argc, char** argv){
 						if (ccc != 0){
 							if (approx and cutoff == 0 and ccc == vecCC.size() - 1){  // in this case, using the higher cutoff we got cliques, so there is nothing to cut
 								mm.lock();
+								cccToKeep = 1;
 								compute = false;
 								mm.unlock();
 							}
@@ -934,6 +936,7 @@ bool execute(int argc, char** argv){
 								mm.lock();
 								minCut = cut;
 								clustersToKeep = clusters;
+								cccToKeep = cutoff;
 								if (not weighted){
 									//~ if (minCut == 0 and cutoff == 1){
 									if (minCut == 0){
@@ -948,6 +951,7 @@ bool execute(int argc, char** argv){
 										mm.lock();
 										minCut = cut;
 										clustersToKeep = clusters;
+										cccToKeep = cutoff;
 										mm.unlock();
 										if (cut == 0){  // we will not reach a lower cut
 											mm.lock();
@@ -960,6 +964,7 @@ bool execute(int argc, char** argv){
 										mm.lock();
 										minCut = cut;
 										clustersToKeep = clusters;
+										cccToKeep = cutoff;
 										mm.unlock();
 									}
 								}
@@ -978,18 +983,35 @@ bool execute(int argc, char** argv){
 				clustersToKeep = clusters;
 			}
 			//////// for tests only ////////
-			//~ double clcoCluster(0);
+			double clcoCluster(0);
 			//////// end //////// 
 			// print clusters associated to the minimal cut over all cutoff values
+			bool write(false);
 			for (uint i(0); i < clustersToKeep.size(); ++i){
 				if (not clustersToKeep[i].empty()){
 					//////// for tests only ////////
-					//~ if (clustersToKeep[i].size() > 2){
-						//~ clcoCluster = computeUnionCC(clustersToKeep[i], vecNodes);
-						//~ outmpost << i << " " << clcoCluster << endl;
-					//~ } else {
-						//~ outmpost << i << " " << 1 << endl;
-					//~ }
+					clcoCluster = computeUnionCC(clustersToKeep[i], vecNodes);
+					if (clustersToKeep[i].size() > 2){
+						if (i > 0 ){
+							if  (clustersToKeep[i] !=  clustersToKeep[i-1]){
+								outmpost << clcoCluster <<  " " << clustersToKeep[i].size() ;
+								write = true;
+							}
+						} else {
+							outmpost << clcoCluster <<  " " << clustersToKeep[i].size() ;
+							write = true;
+						}
+					} else {
+						if (i > 0 ){
+							if  (clustersToKeep[i] !=  clustersToKeep[i-1]){
+								outmpost <<1 <<  " " << 1 ;
+								write = true;
+							}
+						} else {
+							outmpost <<1 <<  " " << 1 ;
+							write = true;
+						}
+					}
 					//////// end ////////
 					if (i > 0 ){
 						if  (clustersToKeep[i] !=  clustersToKeep[i-1]){
@@ -1004,8 +1026,13 @@ bool execute(int argc, char** argv){
 						}
 						out << endl;
 					}
+					if (write){
+						outmpost << " " << cccToKeep << " " <<  minCut << endl;
+						write = false;
+					}
 				}
 			}
+			//~ cout << "Final cut: " << minCut << " CC threshold: " << cccToKeep<< " size: " << clustersToKeep.size() << endl;
 		}
 		cout << "Done." << endl;
 	}
