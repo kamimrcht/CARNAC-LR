@@ -12,7 +12,7 @@ CARNAC-LR (Clustering coefficient-based Acquisition of RNA Communities in Long R
 # Compilation and Usage:
 
 	cd CARNAC;
-	./install;
+	make
 
 ## Warning:
 
