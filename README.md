@@ -12,7 +12,7 @@ CARNAC-LR (Clustering coefficient-based Acquisition of RNA Communities in Long R
 # Compilation and Usage:
 
 	cd CARNAC;
-	./install;
+	make
 
 ## Warning:
 
@@ -68,7 +68,7 @@ Transform clusters file to separated Fasta files:
 
 	./scripts/CARNAC_to_fasta <original_read_file.fa> <CARNAC_clusters_files> [cluster_min_size]
 
-Mandatory arguments are the output of CARNAC followed by the read file. Clusters are output in fasta format, with a file name that correspond to their order of appearance in CARNAC's output. A A minimum size of the clusters to be written can be set.
+Mandatory arguments are the output of CARNAC followed by the read file. Clusters are output in fasta format, with a file name that correspond to their order of appearance in CARNAC's output. A minimum size of the clusters to be written can be set.
 
 
 # Contact:
