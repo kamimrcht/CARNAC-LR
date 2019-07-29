@@ -2,6 +2,8 @@
 CC=g++
 #CC=clang++
 CFLAGS=  -Wall  -O3 -std=c++11 -march=native -pthread -fopenmp
+CFLAGS_SIMPLE=-std=c++11
+
 LDFLAGS= -pthread -fopenmp
 
 
@@ -17,10 +19,12 @@ endif
 
 
 
-EXEC=CARNAC-LR
+EXEC=CARNAC-LR scripts/CARNAC_to_fasta
 
 all: $(EXEC)
 
+scripts/CARNAC_to_fasta: scripts/CARNAC_to_fasta.cpp
+	$(CC) -o $@ -c $^ $(CFLAGS_SIMPLE)
 
 CARNAC-LR: main.o clustering_cliqueness.o preprocessing.o
 	$(CC) -o $@ $^ $(LDFLAGS)
