@@ -21,16 +21,18 @@ For MacOS users (clang version < ), the flag -fopenmp must be removed from Makef
 
 
 ## Usage:
+First compute overlaps between reads using [minimap2](https://github.com/lh3/minimap2). 
+It is very likely that minimap2 will return as primary alignments the reads mapped on themselves. To prevent this, and obtain more read connections in minimap2 output, I recommend to use -X option:
 
+	minimap2 reads.fq reads.fq -X > minimap_output.paf
 
-	./CARNAC-LR -f input_file (-o output_file -t nb_cores)
+Then convert to CARNAC-LR format:
 
+	python CARNAC-LR/scripts/paf_to_CARNAC.py minimap_output.paf reads.fq input_carnac.txt
 
-## Quick test:
+And launch CARNAC-LR:
 
-	./CARNAC-LR -f test/test.input
-The result clusters should be the same than in test/final_g_clusters_to_obtain.txt
-
+	./CARNAC-LR -f input_carnac.txt (-o output_file -t nb_cores)
 
 # Options:
 
@@ -46,11 +48,6 @@ to output the options
 ## Input format:
 * Pairwise mApping Format (PAF) (see for instance https://github.com/lh3/minimap/blob/master/minimap.1) can be converted in CARNAC-LR input format using ./scripts/paf_to_CARNAC.py. The fastq/a file (also .gz) used for the run is also mandatory.
 * CARNAC-LR can directly read Short Read Connector Linker (see https://github.com/GATB/short_read_connector) output format
-
-Example with example_file.paf and reads.fa:
-
-	python3 ./scripts/paf_to_CARNAC.py example_file.paf reads.fa input_CARNAC.txt
-	./CARNAC-lR -f input_CARNAC.txt -o output_CARNAC.txt
 
 ## Output format:
 
@@ -73,4 +70,4 @@ Mandatory arguments are the output of CARNAC followed by the read file. Clusters
 
 # Contact:
 
-camille.marchet@irisa.fr
+camille.marchet@univ-lille.fr
