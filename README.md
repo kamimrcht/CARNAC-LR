@@ -2,17 +2,18 @@ CARNAC-LR (Clustering coefficient-based Acquisition of RNA Communities in Long R
 ====================================================================
 
 # Get CARNAC:
+* Using bioconda:
+Thanks to @npavlovikj, CARNAC-LR is now available on bioconda: https://anaconda.org/bioconda/carnac-lr, for both Linux and OSX. 
 
+* Using git clone:
 	git clone https://github.com/kamimrcht/CARNAC.git
+then compile and install:
+	cd CARNAC;
+	./install;
 
 # Requirements
 * C++11 and GCC version from 4.9 / CLANG from 3.9
 * Python3 for scripts
-
-# Compilation and Usage:
-
-	cd CARNAC;
-	./install;
 
 ## Warning:
 
