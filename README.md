@@ -31,7 +31,11 @@ Then convert to CARNAC-LR format:
 
 	python CARNAC-LR/scripts/paf_to_CARNAC.py minimap_output.paf reads.fq input_carnac.txt
 
-And launch CARNAC-LR:
+Before running CARNAC-LR I recommend to increase the stack size
+
+	ulimit -s unlimited
+
+And then, launch CARNAC-LR:
 
 	./CARNAC-LR -f input_carnac.txt (-o output_file -t nb_cores)
 
